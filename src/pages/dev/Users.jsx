@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../../utils/apiClient";
 import SearchBar from "../../components/dev/SearchBar";
+import PropTypes from "prop-types";
 import {
   Trash2,
   Key,
@@ -891,3 +892,16 @@ const filteredUsers = users.filter((user) => {
     </div>
   );
 }
+
+
+CustomSelect.propTypes = {
+  value: PropTypes.string,
+  onChange: PropTypes.func,
+  options: PropTypes.arrayOf(PropTypes.shape({
+    value: PropTypes.string,
+    label: PropTypes.string
+  })),
+  placeholder: PropTypes.string,
+  disabled: PropTypes.bool,
+  loading: PropTypes.bool
+};

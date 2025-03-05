@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, ChevronDown, CheckCircle, AlertCircle } from "lucide-react"
 import apiClient from "../../utils/apiClient";
+import PropTypes from "prop-types"
 
 export default function CreateUser() {
   const navigate = useNavigate();
@@ -475,4 +476,14 @@ const [checkingEmail, setCheckingEmail] = useState(false);
       </div>
     </div>
   );
+}
+
+CreateUser.propTypes = {
+
+  value : PropTypes.string.isRequired,
+  onChange : PropTypes.func.isRequired,
+  options : PropTypes.array.isRequired,
+  placeholder : PropTypes.string.isRequired,
+  disabled : PropTypes.bool.isRequired,
+  loading : PropTypes.bool.isRequired,
 }
