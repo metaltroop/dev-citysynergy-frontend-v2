@@ -7,26 +7,30 @@ import PropTypes from 'prop-types';
 const Navbar = ({ sticky = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authState, setAuthState] = useState({
-    isLoggedIn: false,
-    userRole: 'citizen'
-  });
+  const [userType, setUserType] = useState(null);
 
   const navLinks = [
     { to: "home", label: "Home" },
     { to: "about", label: "About" }
   ];
 
-  // Check auth state on initial load and route changes
+  // Update the useEffect to also get the user type
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const userData = localStorage.getItem('userData') || sessionStorage.getItem('userData');
-      setIsAuthenticated(!!token && !!userData);
+      const token = localStorage.getItem('token');
+      const userData = localStorage.getItem('userData');
+      
+      if (token && userData) {
+        const user = JSON.parse(userData);
+        setIsAuthenticated(true);
+        setUserType(user.type); // Set the user type from userData
+      } else {
+        setIsAuthenticated(false);
+        setUserType(null);
+      }
     };
 
     checkAuth();
-    // Listen for storage changes
     window.addEventListener('storage', checkAuth);
     return () => window.removeEventListener('storage', checkAuth);
   }, []);
@@ -50,13 +54,8 @@ const Navbar = ({ sticky = false }) => {
   };
 
   const getDashboardLink = () => {
-    switch(authState.userRole) {
-      case 'department': return '/department-dashboard';
-      case 'agency': return '/agency-dashboard';
-      case 'admin':
-      case 'dev': return '/admin-dashboard';
-      default: return '/dashboard';
-    }
+    // Use userType to determine the dashboard route
+    return userType === 'dev' ? '/dashboard/dev' : '/dashboard/dept';
   };
 
   return (

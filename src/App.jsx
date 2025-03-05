@@ -34,7 +34,13 @@ import DeptCreateRole from "./pages/dept/CreateRole"
 import DeptFeatures from "./pages/dept/Features"
 import DeptInventoryRequests from "./pages/dept/inventoryRequests"
 import DeptInventoryAsk from "./pages/dept/InventoryAsk"
+import { useAuth } from "./context/AuthContext"
 
+
+const DashboardRedirect = () => {
+  const { user } = useAuth();
+  return <Navigate to={`/dashboard/${user?.type || 'dev'}`} replace />;
+};
 export default function App() {
   return (
     <LoadingProvider>
@@ -72,6 +78,8 @@ export default function App() {
                 </AuthGuard>
               }
             >
+              <Route index element={<DashboardRedirect />} />
+
               {/* Dev Routes */}
               <Route path="dev" element={<DevDashboard />} />
               <Route path="dev/users" element={<DevUsers />} />
@@ -101,6 +109,7 @@ export default function App() {
               <Route path="dept/roles/create" element={<DeptCreateRole />} />
               <Route path="dept/features" element={<DeptFeatures />} />
             </Route>
+            <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </AuthProvider>
       </Router>

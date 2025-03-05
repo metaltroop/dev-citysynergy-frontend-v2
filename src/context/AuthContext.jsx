@@ -49,8 +49,17 @@ export const AuthProvider = ({ children }) => {
 };
 
   const logout = () => {
+    // Clear localStorage
     localStorage.removeItem("token")
     localStorage.removeItem("userData")
+    
+    // Clear cookies
+    document.cookie.split(";").forEach(cookie => {
+      document.cookie = cookie
+        .replace(/^ +/, "")
+        .replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`);
+    });
+    
     setUser(null)
     setIsAuthenticated(false)
     navigate("/login")
@@ -58,29 +67,37 @@ export const AuthProvider = ({ children }) => {
 
   const verifyOtp = async (email, otp, newPassword) => {
     try {
-      // Simulating API call
-      const response = await fetch("http://localhost:3000/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp, newPassword }),
-      })
-      const data = await response.json()
+      const response = await apiClient.post('/auth/verify-otp', {
+        email,
+        otp,
+        newPassword
+      });
 
-      if (data.success) {
-        return { success: true, message: data.message }
+      if (response.data.success) {
+        return { success: true, message: response.data.message };
       } else {
-        throw new Error(data.message || "OTP verification failed")
+        throw new Error(response.data.message || 'OTP verification failed');
       }
     } catch (error) {
-      console.error("OTP verification error:", error)
-      throw error
+      console.error('OTP verification error:', error);
+      throw error;
     }
-  }
+  };
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, login, logout, verifyOtp }}>{children}</AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+// Move this to a separate hook file like useAuth.js
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
+
+// Export AuthContext if needed elsewhere
+export { AuthContext };
 

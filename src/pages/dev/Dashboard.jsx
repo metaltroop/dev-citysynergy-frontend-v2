@@ -1,9 +1,40 @@
+import { useState, useEffect } from "react"
 import { Users, Building2, ShieldCheck, AlertTriangle, ArrowUp, ArrowDown, Activity } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-
+import apiClient from "../../utils/apiClient"
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    devUsers: 0,
+    deptUsers: 0,
+    activeUsers: 0
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await apiClient.get("/users")
+        if (response.data.success) {
+          const users = response.data.data
+          setStats({
+            totalUsers: users.length,
+            devUsers: users.filter(u => u.type === "dev").length,
+            deptUsers: users.filter(u => u.type === "dept").length,
+            activeUsers: users.filter(u => !u.state.isFirstLogin && !u.state.needsPasswordChange).length
+          })
+        }
+      } catch (err) {
+        console.error("Error fetching users:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [])
 
   return (
     <div className="p-5">
@@ -14,19 +45,18 @@ export default function Dashboard() {
         </div>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                <Users className="h-6 w-6 text-blue-500 dark:text-blue-300" />
-              </div>
-              <span className="px-2.5 py-0.5 text-sm bg-green-50 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-full flex items-center">
-                <ArrowUp className="w-4 h-4 mr-1" />
-                12%
-              </span>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900 rounded-lg">
+              <Users className="h-6 w-6 text-blue-500 dark:text-blue-300" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">2,847</h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Total Users</p>
+            
           </div>
+          <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
+            {loading ? "..." : stats.totalUsers}
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">Total Users</p>
+        </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-purple-50 dark:bg-purple-900 rounded-lg">

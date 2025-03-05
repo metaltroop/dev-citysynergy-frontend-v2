@@ -1,33 +1,61 @@
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
-const refreshAccessToken = async () => {
+const apiClient = axios.create({
+    baseURL: `${import.meta.env.VITE_API_BASE_URL}/api/`,
+    withCredentials: true
+});
+
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+const handleAuthError = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userData');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('userData');
+    
+    isRefreshing = false;
+    processQueue(new Error('Auth error'));
+    
+    // Use window.location.href for more reliable redirect
+    window.location.href = '/login';
+};
+
+const refreshToken = async () => {
     try {
         const response = await axios.post(
-            `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh-token`, 
-            {}, 
-            { withCredentials: true }
+            `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh-token`,
+            {},
+            { 
+                withCredentials: true,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            }
         );
-        
-        if (response.data.success) {
-            const { accessToken } = response.data.data;
-            localStorage.setItem('token', accessToken);
-            return accessToken;
-        } else {
-            throw new Error('Token refresh failed');
+
+        if (response?.data?.success && response.data.data.accessToken) {
+            const newToken = response.data.data.accessToken;
+            localStorage.setItem('token', newToken);
+            return newToken;
         }
+        throw new Error('Refresh token failed');
     } catch (error) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        window.location.href = '/login';
+        console.error('Token refresh failed:', error);
         throw error;
     }
 };
-
-const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
-    withCredentials: true
-});
 
 apiClient.interceptors.request.use(
     config => {
@@ -44,16 +72,47 @@ apiClient.interceptors.response.use(
     response => response,
     async error => {
         const originalRequest = error.config;
-        if (error.response?.status === 401 && !originalRequest._retry) {
+
+        // Don't retry refresh token requests to avoid infinite loops
+        if (originalRequest.url === '/auth/refresh-token') {
+            handleAuthError();
+            return Promise.reject(error);
+        }
+
+        // Check if it's an auth error and not already retrying
+        if ((error.response?.data?.message === "Invalid or expired token" || 
+             error.response?.status === 401) && !originalRequest._retry) {
+            
+            if (isRefreshing) {
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    return apiClient(originalRequest);
+                }).catch(err => {
+                    handleAuthError();
+                    return Promise.reject(err);
+                });
+            }
+
             originalRequest._retry = true;
+            isRefreshing = true;
+
             try {
-                const newAccessToken = await refreshAccessToken();
-                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                const newToken = await refreshToken();
+                apiClient.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                processQueue(null, newToken);
                 return apiClient(originalRequest);
             } catch (refreshError) {
+                processQueue(refreshError, null);
+                handleAuthError();
                 return Promise.reject(refreshError);
+            } finally {
+                isRefreshing = false;
             }
         }
+
         return Promise.reject(error);
     }
 );
