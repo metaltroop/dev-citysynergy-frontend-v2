@@ -894,14 +894,3 @@ const filteredUsers = users.filter((user) => {
 }
 
 
-CustomSelect.propTypes = {
-  value: PropTypes.string,
-  onChange: PropTypes.func,
-  options: PropTypes.arrayOf(PropTypes.shape({
-    value: PropTypes.string,
-    label: PropTypes.string
-  })),
-  placeholder: PropTypes.string,
-  disabled: PropTypes.bool,
-  loading: PropTypes.bool
-};
