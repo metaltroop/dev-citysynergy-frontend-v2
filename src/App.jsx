@@ -35,6 +35,7 @@ import DeptFeatures from "./pages/dept/Features"
 import DeptInventoryRequests from "./pages/dept/inventoryRequests"
 import DeptInventoryAsk from "./pages/dept/InventoryAsk"
 import { useAuth } from "./context/AuthContext"
+import { ToastProvider } from "./context/ToastContext"
 
 
 const DashboardRedirect = () => {
@@ -44,6 +45,7 @@ const DashboardRedirect = () => {
 export default function App() {
   return (
     <LoadingProvider>
+      <ToastProvider>
       <Router>
         <AuthProvider>
           <Routes>
@@ -113,6 +115,7 @@ export default function App() {
           </Routes>
         </AuthProvider>
       </Router>
+      </ToastProvider>
     </LoadingProvider>
   )
 }

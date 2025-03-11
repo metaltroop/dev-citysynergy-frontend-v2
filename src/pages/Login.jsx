@@ -1,29 +1,56 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
+"use client"
 
-import axios from "axios";
-import { useAuth } from "../context/AuthContext";
-import { useLoading } from "../context/LoadingContext";
-import mhlogo from "../assets/mhgovlogo.png";
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { FaEye, FaEyeSlash } from "react-icons/fa"
+import { IoMoonOutline, IoSunnyOutline } from "react-icons/io5"
+import { useAuth } from "../context/AuthContext"
+import { useLoading } from "../context/LoadingContext"
+import mhlogo from "../assets/mhgovlogo.png"
 
 export const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-  const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
-  const { login } = useAuth();
-  const { setIsLoading } = useLoading();
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [rememberMe, setRememberMe] = useState(false)
+  const [error, setError] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
+  const navigate = useNavigate()
+  const { login } = useAuth()
+  const { setIsLoading } = useLoading()
+
+  useEffect(() => {
+    // Check if dark mode is enabled in localStorage or system preference
+    const isDarkMode =
+      localStorage.getItem("darkMode") === "true" ||
+      (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)
+
+    setDarkMode(isDarkMode)
+
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [])
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !darkMode
+    setDarkMode(newDarkMode)
+    localStorage.setItem("darkMode", newDarkMode)
+
+    if (newDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError("")
     try {
-    setIsLoading(true);
+      setIsLoading(true)
 
       const result = await login(email, password)
       if (result.requiresOTP) {
@@ -36,101 +63,147 @@ export const Login = () => {
       setIsLoading(false)
     }
   }
- 
+
   return (
-    <div className="bg-white flex items-center justify-center w-full h-screen relative">
-      <img
-        src="./loginboy.png"
-        className="absolute z-0 4xl:-translate-x-[70%] 3xl:-translate-x-[60%] 2xl:-translate-x-[50%] xl:-translate-x-[45%] -translate-x-[100%] -translate-y-20"
-        alt=""
-      />
-      <div className="bg-[#f5f5f5] 2xl:w-1/4 xl:w-1/4 2xl:h-[85%] xl:h-3/4 w-full h-full p-5 rounded-2xl shadow-xl z-10">
-        <div className="p-2">
-          <div className="flex justify-end mb-4">
-            <p>: )</p>
+    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      {/* Left side - Branding Panel */}
+      <div className="md:w-1/2 p-8 flex flex-col justify-center items-center bg-gradient-to-br from-blue-600 to-indigo-800 text-white">
+        <div className="max-w-md mx-auto py-12 px-4 text-center">
+          <div className="mb-10">
+            <h1 className="text-5xl font-bold mb-6">City Synergy</h1>
+            <p className="text-xl opacity-90">Streamlining urban management for a better tomorrow</p>
           </div>
-          <div className="flex flex-col items-center">
-            <img src={mhlogo} alt="Logo" className="w-20 h-20 mb-4" />
-            <h2 className="text-xl sm:text-3xl font-semibold">CITY SYNERGY</h2>
-            <p className="text-center text-gray-500 mt-2 mb-8">Welcome Back!</p>
+          
+          <div className="relative w-full h-64 mb-8">
+            <div className="absolute inset-0 bg-white/10 rounded-xl backdrop-blur-sm"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <img src="./citylogo.png" alt="City Synergy" className="w-40 h-auto" />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4 text-sm opacity-80">
+            <div className="bg-white/10 p-4 rounded-lg">
+              <p className="font-semibold">Modern Solutions</p>
+            </div>
+            <div className="bg-white/10 p-4 rounded-lg">
+              <p className="font-semibold">Smart Governance</p>
+            </div>
+            <div className="bg-white/10 p-4 rounded-lg">
+              <p className="font-semibold">Connected Citizens</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right side - Login Form */}
+      <div className="md:w-1/2 p-6 flex items-center justify-center">
+        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 relative">
+          <button
+            onClick={toggleDarkMode}
+            className="absolute top-6 right-6 p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {darkMode ? <IoSunnyOutline className="h-5 w-5" /> : <IoMoonOutline className="h-5 w-5" />}
+          </button>
+          
+          <div className="flex flex-col items-center mb-8">
+            <img src={mhlogo || "/placeholder.svg"} alt="Logo" className="w-20 h-20 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">CITY SYNERGY</h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Access your dashboard</p>
           </div>
 
-          <form onSubmit={handleLogin}>
-            <div className="relative mb-6">
-              <label
-                className={`absolute left-2 transition-all duration-200 transform ${
-                  emailFocused ? "-top-2.5 text-sm bg-white px-1" : "top-4 text-base"
-                } text-gray-500`}
-              >
-                Email
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email Address
               </label>
-              <input
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-2 pt-6 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onFocus={() => setEmailFocused(true)}
-                onBlur={(e) => setEmailFocused(e.target.value !== "")}
-              />
-            </div>
-
-            <div className="relative mb-6">
-              <label
-                className={`absolute left-2 transition-all duration-200 transform ${
-                  passwordFocused ? "-top-2.5 text-sm bg-white px-1" : "top-4 text-base"
-                } text-gray-500`}
-              >
-                Password
-              </label>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-2 pt-6 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={(e) => setPasswordFocused(e.target.value !== "")}
-              />
-              <span
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: "absolute",
-                  right: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  cursor: "pointer",
-                }}
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
-
-            <div className="flex items-center mb-6">
-              <button
-                type="button"
-                onClick={() => setRememberMe(!rememberMe)}
-                className={`relative w-11 h-6 transition-colors duration-300 rounded-full ${
-                  rememberMe ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 transform ${
-                    rememberMe ? 'translate-x-5' : 'translate-x-0'
-                  }`}
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                  placeholder="your.email@example.com"
+                  required
                 />
-              </button>
-              <label className="ml-3 text-sm text-gray-600">Remember me</label>
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Password
+                </label>
+                <a href="#" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                  Forgot password?
+                </a>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                >
+                  {showPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <div 
+                  className={`relative w-11 h-6 transition-colors duration-300 rounded-full ${
+                    rememberMe ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                  onClick={() => setRememberMe(!rememberMe)}
+                >
+                  <span
+                    className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 transform ${
+                      rememberMe ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Remember me</span>
+              </label>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg text-sm border border-red-200 dark:border-red-800/30">
+                <p className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {error}
+                </p>
+              </div>
+            )}
 
             <button
               type="submit"
-              className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 mb-4"
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition duration-200 font-medium shadow-md hover:shadow-lg"
             >
-              LOGIN
+              Sign in to account
             </button>
           </form>
-          {error && <p className="text-red-500">{error}</p>}
+
+          <div className="mt-8 text-center">
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              Need help?{" "}
+              <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                Contact support
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
