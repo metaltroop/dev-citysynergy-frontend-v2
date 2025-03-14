@@ -1,6 +1,5 @@
 "use client"
 
-// src/components/Sidebar.jsx
 import { useState } from "react"
 import PropTypes from "prop-types"
 import { Link, useLocation } from "react-router-dom"
@@ -19,24 +18,39 @@ import {
   Sun,
   Moon,
 } from "lucide-react"
+import ProfileImageModal from "../common/ProfileImageModal"
+import ProfileImage from "../common/ProfileImage"
 
 const navItems = [
-  { path: "/dashboard/dev", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/dashboard/dev/users", label: "Users", icon: Users },
-  { path: "/dashboard/dev/departments", label: "Departments", icon: FolderTree },
-  { path: "/dashboard/dev/roles", label: "Roles", icon: Shield },
-  { path: "/dashboard/dev/features", label: "Features", icon: Settings },
-  { path: "/dashboard/dev/clashes", label: "Clashes", icon: AlertTriangle },
+  { path: "/dashboard/dev", label: "Dashboard", icon: LayoutDashboard, featureId: "FEAT_DASHBOARD" },
+  { path: "/dashboard/dev/users", label: "Users", icon: Users, featureId: "FEAT001" },
+  { path: "/dashboard/dev/departments", label: "Departments", icon: FolderTree, featureId: "FEAT002" },
+  { path: "/dashboard/dev/roles", label: "Roles", icon: Shield, featureId: "FEAT003" },
+  { path: "/dashboard/dev/features", label: "Features", icon: Settings, featureId: "FEAT004" },
+  { path: "/dashboard/dev/clashes", label: "Clashes", icon: AlertTriangle, featureId: "FEAT005" },
 ]
 
-const quickLinks = [
-  { label: "Logout", icon: LogOut },
-]
+const quickLinks = [{ label: "Logout", icon: LogOut }]
 
 const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, toggleDarkMode }) => {
+  
   const location = useLocation()
   const [hoverIndex, setHoverIndex] = useState(null)
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+
+  const [ setUser] = useState({
+    name: "John Doe",
+    profileImage: "https://via.placeholder.com/150",
+    permissions: {
+      roles: [{ roleName: "Admin" }],
+    },
+  })
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
+
+
+  // Get the user's role name from permissions
+  const userRoleName = user?.permissions?.roles?.[0]?.roleName || "User"
 
   // Handle sidebar visibility based on props
   const sidebarVisible = isMobile ? isOpen : true
@@ -53,6 +67,34 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
     logout()
     handleLinkClick()
   }
+
+
+  // Handle profile image update
+  const handleImageUpdate = (imageUrl) => {
+    // Update user profile image in context if needed
+    if (user) {
+      user.profileImage = imageUrl
+    }
+  }
+
+  // Filter nav items based on user permissions
+  const filteredNavItems = navItems.filter((item) => {
+    // Check if user has permission to access this feature
+    if (user && user.permissions && user.permissions.roles) {
+      const featureId = item.featureId
+
+      // Dashboard is always accessible
+      if (item.path === "/dashboard/dev") return true
+
+      // Check if any role has read permission for this feature
+      return user.permissions.roles.some((role) =>
+        role.features.some((feature) => feature.id === featureId && feature.permissions.read),
+      )
+    }
+
+    // If permissions not loaded yet or no specific feature ID, show the item
+    return true
+  })
 
   if (!sidebarVisible) {
     return null
@@ -154,7 +196,7 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
           </div>
 
           <div className="space-y-1">
-            {navItems.map((item, index) => (
+            {filteredNavItems.map((item, index) => (
               <Link
                 key={item.path}
                 to={item.path}
@@ -241,25 +283,35 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
 
         {/* User profile */}
         {!isCollapsed || isMobile ? (
-          <div className="p-4 border-t border-gray-100 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
-                JD
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">John Doe</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Administrator</p>
-              </div>
+        <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center space-x-3">
+            <div onClick={() => setShowProfileModal(true)} className="cursor-pointer">
+              <ProfileImage username={user?.name} profileImage={user?.profileImage} size="sm" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{user?.name || "User"}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{userRoleName}</p>
             </div>
           </div>
-        ) : (
-          <div className="p-3 border-t border-gray-100 dark:border-gray-700 flex justify-center">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
-              JD
-            </div>
+        </div>
+      ) : (
+        <div className="p-3 border-t border-gray-100 dark:border-gray-700 flex justify-center">
+          <div onClick={() => setShowProfileModal(true)} className="cursor-pointer">
+            <ProfileImage username={user?.name} profileImage={user?.profileImage} size="sm" />
           </div>
-        )}
+        </div>
+      )}
       </aside>
+
+      {/* Profile Image Modal - Rendered outside the sidebar */}
+      {showProfileModal && (
+        <ProfileImageModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          currentUser={user}
+          onImageUpdate={handleImageUpdate}
+        />
+      )}
     </>
   )
 }
@@ -274,3 +326,4 @@ Sidebar.propTypes = {
 }
 
 export default Sidebar
+

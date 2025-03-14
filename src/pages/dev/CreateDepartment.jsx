@@ -78,7 +78,7 @@ export default function CreateDepartment() {
 
   // Handle department code change with debounce
   const handleDeptCodeChange = (e) => {
-    const code = e.target.value
+    const code = e.target.value.toUpperCase() // Convert to uppercase
     setFormData((prev) => ({ ...prev, deptCode: code }))
 
     if (code.length < 3) {

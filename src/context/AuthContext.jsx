@@ -23,43 +23,49 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-        const response = await apiClient.post('/auth/login', { 
-            email, 
-            password 
-        });
-        
-        if (response.data.success) {
-            if (response.data.data.requiresOTP) {
-                return { requiresOTP: true, email: response.data.data.email };
-            }
+      const response = await apiClient.post("/auth/login", {
+        email,
+        password,
+      })
 
-            const { user, accessToken } = response.data.data;
-            localStorage.setItem('token', accessToken);
-            localStorage.setItem('userData', JSON.stringify(user));
-            setUser(user);
-            setIsAuthenticated(true);
-            navigate(user.type === 'dev' ? '/dashboard/dev' : '/dashboard/dept');
-            return { success: true };
+      if (response.data.success) {
+        if (response.data.data.requiresOTP) {
+          return { requiresOTP: true, email: response.data.data.email }
         }
-        throw new Error(response.data.message || 'Login failed');
+
+        const { user, accessToken, permissions } = response.data.data
+
+        // Add permissions to user object
+        const userWithPermissions = {
+          ...user,
+          permissions,
+        }
+
+        localStorage.setItem("token", accessToken)
+        localStorage.setItem("userData", JSON.stringify(userWithPermissions))
+        setUser(userWithPermissions)
+        setIsAuthenticated(true)
+        navigate(user.type === "dev" ? "/dashboard/dev" : "/dashboard/dept")
+        return { success: true }
+      }
+      throw new Error(response.data.message || "Login failed")
     } catch (error) {
-        console.error('Login error:', error);
-        throw error;
+      console.error("Login error:", error)
+      throw error
     }
-};
+  }
 
   const logout = () => {
     // Clear localStorage
     localStorage.removeItem("token")
     localStorage.removeItem("userData")
-    
+    localStorage.removeItem("profileImage")
+
     // Clear cookies
-    document.cookie.split(";").forEach(cookie => {
-      document.cookie = cookie
-        .replace(/^ +/, "")
-        .replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`);
-    });
-    
+    document.cookie.split(";").forEach((cookie) => {
+      document.cookie = cookie.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`)
+    })
+
     setUser(null)
     setIsAuthenticated(false)
     navigate("/login")
@@ -67,22 +73,22 @@ export const AuthProvider = ({ children }) => {
 
   const verifyOtp = async (email, otp, newPassword) => {
     try {
-      const response = await apiClient.post('/auth/verify-otp', {
+      const response = await apiClient.post("/auth/verify-otp", {
         email,
         otp,
-        newPassword
-      });
+        newPassword,
+      })
 
       if (response.data.success) {
-        return { success: true, message: response.data.message };
+        return { success: true, message: response.data.message }
       } else {
-        throw new Error(response.data.message || 'OTP verification failed');
+        throw new Error(response.data.message || "OTP verification failed")
       }
     } catch (error) {
-      console.error('OTP verification error:', error);
-      throw error;
+      console.error("OTP verification error:", error)
+      throw error
     }
-  };
+  }
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, login, logout, verifyOtp }}>{children}</AuthContext.Provider>
@@ -91,13 +97,13 @@ export const AuthProvider = ({ children }) => {
 
 // Move this to a separate hook file like useAuth.js
 export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
-};
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}
 
 // Export AuthContext if needed elsewhere
-export { AuthContext };
+export { AuthContext }
 

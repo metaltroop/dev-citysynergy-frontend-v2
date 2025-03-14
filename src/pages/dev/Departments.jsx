@@ -5,10 +5,12 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import SearchBar from "../../components/dev/SearchBar"
 import apiClient from "../../utils/apiClient"
-import { Building2, Plus, Edit, Trash2, Filter, RefreshCcw, Users, Info, Loader2 } from "lucide-react"
+import { Building2, Plus, Edit, Trash2, RefreshCcw, Users, Info, Loader2 } from "lucide-react"
 import Button from "../../components/dept/Button"
 import Modal from "../../components/dept/Modal"
 import { useToast } from "../../context/ToastContext"
+// Import the SortDropdown component
+import SortDropdown from "../../components/common/SortDropdown"
 
 export default function DepartmentsPage() {
   const navigate = useNavigate()
@@ -161,6 +163,8 @@ export default function DepartmentsPage() {
         return ((a.users?.length || 0) - (b.users?.length || 0)) * factor
       } else if (sortBy === "code") {
         return a.deptCode.localeCompare(b.deptCode) * factor
+      } else if (sortBy === "date") {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() * factor
       }
 
       return 0
@@ -255,6 +259,8 @@ export default function DepartmentsPage() {
             </button>
           </div>
 
+          {/* Replace the filter dropdown with the SortDropdown component */}
+          {/* Find the filter section and replace it with: */}
           <div className="flex flex-col sm:flex-row gap-3">
             <SearchBar onSearch={setSearchTerm} placeholder="Search departments..." className="w-full sm:w-64" />
             <button
@@ -267,67 +273,27 @@ export default function DepartmentsPage() {
                 className={`h-5 w-5 text-gray-600 dark:text-gray-300 ${isRefreshing ? "animate-spin" : ""}`}
               />
             </button>
-            <div className="relative" ref={filterRef}>
-              <button
-                onClick={() => setFilterOpen(!filterOpen)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                <Filter className="h-4 w-4" />
-                Sort & Filter
-              </button>
-
-              {filterOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 z-10 p-4">
-                  <h3 className="font-medium mb-3 dark:text-white">Sort Departments</h3>
-
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                      <option value="name">Department Name</option>
-                      <option value="users">User Count</option>
-                      <option value="code">Department Code</option>
-                    </select>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
-                    <select
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value)}
-                      className="w-full border dark:border-gray-600 rounded-lg px-3 py-2 
-                        dark:bg-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 
-                        focus:ring-blue-500 transition-colors"
-                    >
-                      <option value="asc">Ascending</option>
-                      <option value="desc">Descending</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-end mt-4">
-                    <button
-                      onClick={() => {
-                        setSortBy("name")
-                        setSortOrder("asc")
-                      }}
-                      className="text-sm text-blue-500 hover:text-blue-700"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <SortDropdown
+              options={[
+                { label: "Department Name", value: "name" },
+                { label: "Department Code", value: "code" },
+                { label: "User Count", value: "users" },
+                { label: "Creation Date", value: "date" },
+              ]}
+              value={sortBy}
+              order={sortOrder}
+              onChange={(value, order) => {
+                setSortBy(value)
+                setSortOrder(order)
+              }}
+            />
           </div>
         </div>
 
         {loading ? (
           <div className="p-8 text-center">
             <div className="text-gray-400 dark:text-gray-500 mb-2">
-              <Loader2 className="h-12 w-12 mx-auto mb-2 opacity-50 animate-spin" />
+              <RefreshCcw className="h-12 w-12 mx-auto mb-2 opacity-50 animate-spin" />
               <p className="text-lg font-medium dark:text-gray-400">Loading departments...</p>
             </div>
           </div>
@@ -438,27 +404,32 @@ export default function DepartmentsPage() {
             {filteredDepartments.map((dept) => (
               <div
                 key={dept.deptId}
-                className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
               >
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium text-lg text-gray-900 dark:text-white">{dept.deptName}</h3>
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md mt-1 inline-block">
-                        {dept.deptCode}
-                      </span>
+                      <div className="flex items-center mt-1">
+                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md inline-block">
+                          {dept.deptCode}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                          ID: {dept.deptId.substring(0, 8)}...
+                        </span>
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <button
                         onClick={() => fetchDepartmentInfo(dept.deptId)}
-                        className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-full transition-colors"
+                        className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-full transition-colors"
                         title="View Details"
                       >
                         <Info className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleEditDepartment(dept)}
-                        className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-full transition-colors"
+                        className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-full transition-colors"
                         title="Edit Department"
                       >
                         <Edit className="h-4 w-4" />
@@ -468,7 +439,7 @@ export default function DepartmentsPage() {
                           setDeptToDelete(dept)
                           setDeleteModalOpen(true)
                         }}
-                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-full transition-colors"
+                        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-full transition-colors"
                         title="Delete Department"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -480,22 +451,36 @@ export default function DepartmentsPage() {
                   <div className="text-sm mb-3">
                     <div className="font-medium mb-1 text-gray-900 dark:text-white">Department Head</div>
                     {dept.deptHead ? (
-                      <>
-                        <div className="text-gray-700 dark:text-gray-300">{dept.deptHead.username}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{dept.deptHead.email}</div>
-                      </>
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium text-xs mr-2">
+                          {dept.deptHead.username.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-gray-700 dark:text-gray-300">{dept.deptHead.username}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{dept.deptHead.email}</div>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="text-gray-500 dark:text-gray-400">No head assigned</div>
+                      <div className="flex items-center text-gray-500 dark:text-gray-400">
+                        <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 font-medium text-xs mr-2">
+                          NA
+                        </div>
+                        <span>No head assigned</span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded p-2 text-center">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
-                    <div className="font-medium text-blue-600 dark:text-blue-400">{dept.users?.length || 0}</div>
-                  </div>
-
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                    ID: {dept.deptId} • Created {new Date(dept.createdAt).toLocaleDateString()}
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded p-2 text-center">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
+                      <div className="font-medium text-blue-600 dark:text-blue-400">{dept.users?.length || 0}</div>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded p-2 text-center">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Created</div>
+                      <div className="font-medium text-gray-600 dark:text-gray-300">
+                        {new Date(dept.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -557,7 +542,7 @@ export default function DepartmentsPage() {
               <Button variant="danger" onClick={confirmDeleteDepartment} disabled={isDeleting}>
                 {isDeleting ? (
                   <div className="flex items-center">
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
                     Deleting...
                   </div>
                 ) : (
@@ -681,7 +666,7 @@ export default function DepartmentsPage() {
               <Button onClick={saveEditedDepartment} disabled={isEditing || !newDeptName.trim()}>
                 {isEditing ? (
                   <div className="flex items-center">
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
                     Saving...
                   </div>
                 ) : (

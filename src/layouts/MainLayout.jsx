@@ -136,7 +136,7 @@ const MainLayout = () => {
         
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background-color: rgba(156, 163, 175, 0.5); /* gray-400 with opacity */
-          border-radius: 20px;
+          border-radius: 20px;~
         }
         
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {

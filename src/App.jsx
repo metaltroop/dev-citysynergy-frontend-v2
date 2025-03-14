@@ -36,6 +36,7 @@ import DeptInventoryRequests from "./pages/dept/inventoryRequests"
 import DeptInventoryAsk from "./pages/dept/InventoryAsk"
 import { useAuth } from "./context/AuthContext"
 import { ToastProvider } from "./context/ToastContext"
+import ErrorBoundary from "./components/ErrorBoundary"
 
 
 const DashboardRedirect = () => {
@@ -44,6 +45,7 @@ const DashboardRedirect = () => {
 };
 export default function App() {
   return (
+    <ErrorBoundary>
     <LoadingProvider>
       <ToastProvider>
       <Router>
@@ -117,6 +119,7 @@ export default function App() {
       </Router>
       </ToastProvider>
     </LoadingProvider>
+    </ErrorBoundary>
   )
 }
 

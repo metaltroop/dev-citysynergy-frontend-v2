@@ -2,6 +2,8 @@
 
 import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import ReactDOM from "react-dom"
+import PropTypes from "prop-types"
 
 const Modal = ({ isOpen, onClose, title, children, originPosition = null, maxWidth = "max-w-md" }) => {
   const [animationState, setAnimationState] = useState(isOpen ? "entering" : "closed")
@@ -77,8 +79,9 @@ const Modal = ({ isOpen, onClose, title, children, originPosition = null, maxWid
     ? { transformOrigin: `${clickPosition.x}px ${clickPosition.y}px` }
     : { transformOrigin: "center" }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  // Create the modal content
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* First layer: blur backdrop */}
       <div
         className={`fixed inset-0 backdrop-blur-sm transition-opacity duration-300 ease-out ${
@@ -119,6 +122,18 @@ const Modal = ({ isOpen, onClose, title, children, originPosition = null, maxWid
       </div>
     </div>
   )
+
+  // Use portal to render the modal at the root level
+  return ReactDOM.createPortal(modalContent, document.body)
+}
+
+Modal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+  originPosition: PropTypes.object,
+  maxWidth: PropTypes.string,
 }
 
 export default Modal

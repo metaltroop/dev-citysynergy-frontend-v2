@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
 import {
@@ -18,7 +18,10 @@ import {
   X,
   Sun,
   Moon,
+  RefreshCcw,
 } from "lucide-react"
+import apiClient from "../../utils/apiClient"
+import ProfileImageModal from "../common/ProfileImageModal"
 
 const navItems = [
   { path: "/dashboard/dept", label: "Dashboard", icon: LayoutDashboard },
@@ -36,7 +39,53 @@ const quickLinks = [{ label: "Logout", icon: LogOut }]
 const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, toggleDarkMode }) => {
   const location = useLocation()
   const [hoverIndex, setHoverIndex] = useState(null)
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
+
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [profileImage, setProfileImage] = useState(null)
+  const [loadingProfileImage, setLoadingProfileImage] = useState(false)
+  const [userInitials, setUserInitials] = useState("JD")
+
+  // Add a function to fetch the current user's profile image
+  const fetchProfileImage = async () => {
+    try {
+      setLoadingProfileImage(true)
+
+      // First check localStorage
+      const cachedImage = localStorage.getItem("profileImage")
+      if (cachedImage) {
+        setProfileImage(cachedImage)
+        setLoadingProfileImage(false)
+        return
+      }
+
+      const response = await apiClient.get("/profile/image/current")
+
+      if (response.data.success && response.data.data) {
+        setProfileImage(response.data.data.imageUrl)
+        // Cache the image URL
+        localStorage.setItem("profileImage", response.data.data.imageUrl)
+      }
+    } catch (error) {
+      console.error("Error fetching profile image:", error)
+    } finally {
+      setLoadingProfileImage(false)
+    }
+  }
+
+  // Set user initials based on user name
+  useEffect(() => {
+    if (user && user.name) {
+      // Extract initials from name (up to 2 characters)
+      const initials = user.name.substring(0, 2).toUpperCase()
+      setUserInitials(initials)
+    }
+  }, [user])
+
+  // Call this function when the component mounts
+  useEffect(() => {
+    fetchProfileImage()
+  }, [])
 
   // Handle closing sidebar when clicking a link on mobile
   const handleLinkClick = () => {
@@ -50,6 +99,46 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
     logout()
     handleLinkClick()
   }
+
+  // Handle profile image update
+  const handleImageUpdate = (imageUrl) => {
+    setProfileImage(imageUrl)
+  }
+
+  // Filter nav items based on user permissions
+  const filteredNavItems = navItems.filter((item) => {
+    // Extract feature name from path
+    const pathSegments = item.path.split("/")
+    const featureName = pathSegments[pathSegments.length - 1]
+
+    // Check if user has permission to access this feature
+    if (user && user.permissions && user.permissions.can) {
+      switch (featureName) {
+        case "users":
+          return user.permissions.can.manageUsers
+        case "roles":
+          return user.permissions.can.manageRoles
+        case "features":
+          return user.permissions.can.manageFeatures
+        case "inventory":
+          return user.permissions.can.manageInventory
+        case "issues":
+          return user.permissions.can.manageIssues
+        case "clashes":
+          // Everyone can see clashes
+          return true
+        case "tenders":
+          // Everyone can see tenders
+          return true
+        case "dept":
+          // Dashboard is accessible to everyone
+          return true
+        default:
+          return true
+      }
+    }
+    return true // If permissions not loaded yet, show all
+  })
 
   return (
     <>
@@ -107,7 +196,7 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
           </div>
 
           <div className="space-y-1">
-            {navItems.map((item, index) => (
+            {filteredNavItems.map((item, index) => (
               <Link
                 key={item.path}
                 to={item.path}
@@ -196,22 +285,58 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
         {!isCollapsed || isMobile ? (
           <div className="p-4 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center space-x-3">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
-                JD
+              <div
+                className="h-9 w-9 rounded-full overflow-hidden cursor-pointer"
+                onClick={() => setShowProfileModal(true)}
+              >
+                {loadingProfileImage ? (
+                  <div className="h-full w-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                    <RefreshCcw className="h-4 w-4 text-gray-400 dark:text-gray-500 animate-spin" />
+                  </div>
+                ) : profileImage ? (
+                  <img src={profileImage || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
+                    {userInitials}
+                  </div>
+                )}
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">John Doe</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Administrator</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{user?.name || "John Doe"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {user?.type === "dev" ? "Developer" : "Department User"}
+                </p>
               </div>
             </div>
           </div>
         ) : (
           <div className="p-3 border-t border-gray-100 dark:border-gray-700 flex justify-center">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
-              JD
+            <div
+              className="h-9 w-9 rounded-full overflow-hidden cursor-pointer"
+              onClick={() => setShowProfileModal(true)}
+            >
+              {loadingProfileImage ? (
+                <div className="h-full w-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                  <RefreshCcw className="h-4 w-4 text-gray-400 dark:text-gray-500 animate-spin" />
+                </div>
+              ) : profileImage ? (
+                <img src={profileImage || "/placeholder.svg"} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium">
+                  {userInitials}
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        {/* Profile Image Modal */}
+        <ProfileImageModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          currentUser={user}
+          onImageUpdate={handleImageUpdate}
+        />
       </aside>
     </>
   )

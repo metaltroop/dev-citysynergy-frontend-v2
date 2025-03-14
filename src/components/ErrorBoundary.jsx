@@ -2,34 +2,34 @@
 import { Component } from 'react';
 
 class ErrorBoundary extends Component {
-  state = { hasError: false };
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(error) {
     return { hasError: true };
   }
 
-  componentDidCatch(error, info) {
-    console.error("ErrorBoundary caught:", error, info);
+  componentDidCatch(error, errorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">
-              Something went wrong
-            </h2>
-            <button
-              className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
-              onClick={() => window.location.reload()}
-            >
-              Reload Page
-            </button>
-          </div>
+        <div className="p-4 text-center">
+          <h2 className="text-xl font-bold text-red-600 mb-2">Something went wrong</h2>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Refresh Page
+          </button>
         </div>
       );
     }
+
     return this.props.children;
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, Edit, Trash2, Shield, Users, Lock, Settings,LayoutGrid, List, } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Shield, Users, Lock, LayoutGrid, List, Info } from "lucide-react"
 import Button from "../../components/dept/Button"
 import SlideOver from "../../components/dept/SlideOver"
 
@@ -24,6 +24,15 @@ const Roles = () => {
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState(null)
   const [permissions, setPermissions] = useState({})
+  const user = {
+    permissions: {
+      roles: [
+        {
+          features: [{ id: "FEAT003", permissions: { write: true, update: true, delete: true } }],
+        },
+      ],
+    },
+  }
 
   // Initialize permissions state for each feature
   const initializePermissions = (role) => {
@@ -55,7 +64,7 @@ const Roles = () => {
     setIsPermissionModalOpen(true)
   }
 
-  // Dummy roles data
+  // Dummy roles data with hierarchy levels
   const roles = [
     {
       id: 1,
@@ -64,6 +73,7 @@ const Roles = () => {
       users: 3,
       permissions: {},
       createdAt: "2024-03-01",
+      hierarchyLevel: 10,
     },
     {
       id: 2,
@@ -72,6 +82,7 @@ const Roles = () => {
       users: 8,
       permissions: {},
       createdAt: "2024-03-05",
+      hierarchyLevel: 40,
     },
     {
       id: 3,
@@ -80,6 +91,7 @@ const Roles = () => {
       users: 15,
       permissions: {},
       createdAt: "2024-03-10",
+      hierarchyLevel: 90,
     },
   ]
 
@@ -96,6 +108,11 @@ const Roles = () => {
     roles.reduce((sum, role) => sum + Object.keys(role.permissions).length, 0) / roles.length,
   )
 
+  const handleDeleteRole = (role) => {
+    // Implement your delete role logic here
+    console.log(`Deleting role with ID: ${role.id}`)
+  }
+
   return (
     <div className="max-w-auto mx-auto p-6">
       {/* Header */}
@@ -107,10 +124,14 @@ const Roles = () => {
           </h1>
           <p className="text-gray-600 dark:text-gray-400">Manage system roles and permissions</p>
         </div>
-        <Button          onClick={() => navigate("/dashboard/dept/roles/create")}        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Role
-        </Button>
+        {user?.permissions?.roles?.some((role) =>
+          role.features.some((feature) => feature.id === "FEAT003" && feature.permissions.write),
+        ) && (
+          <Button onClick={() => navigate("/dashboard/dept/roles/create")}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Role
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -181,6 +202,14 @@ const Roles = () => {
                     Role Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Hierarchy Level
+                    <span className="ml-1 inline-block">
+                      <button title="Hierarchy determines which roles a user can manage. Lower numbers have higher privileges.">
+                        <Info className="h-3.5 w-3.5 text-gray-400" />
+                      </button>
+                    </span>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Description
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -198,6 +227,21 @@ const Roles = () => {
                       <div className="text-sm font-medium text-gray-900 dark:text-white">{role.name}</div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">Created {role.createdAt}</div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded ${
+                            role.hierarchyLevel <= 20
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                              : role.hierarchyLevel <= 50
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {role.hierarchyLevel}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-500 dark:text-gray-300">{role.description}</div>
                     </td>
@@ -206,15 +250,44 @@ const Roles = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <Button variant="secondary" size="sm" onClick={() => openPermissionModal(role)}>
-                          Update Permissions
-                        </Button>
-                        <button className="text-sky-600 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300">
-                          <Edit size={18} />
-                        </button>
-                        <button className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                          <Trash2 size={18} />
-                        </button>
+                        {user?.permissions?.roles?.some((role) =>
+                          role.features.some((feature) => feature.id === "FEAT003" && feature.permissions.update),
+                        ) ? (
+                          <Button variant="secondary" size="sm" onClick={() => openPermissionModal(role)}>
+                            Update Permissions
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled
+                            title="You don't have permission to update permissions"
+                          >
+                            Update Permissions
+                          </Button>
+                        )}
+                        {user?.permissions?.roles?.some((role) =>
+                          role.features.some((feature) => feature.id === "FEAT003" && feature.permissions.update),
+                        ) ? (
+                          <button className="text-sky-600 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300">
+                            <Edit size={18} />
+                          </button>
+                        ) : (
+                          <button className="text-gray-400 dark:text-gray-600 cursor-not-allowed" disabled>
+                            <Edit size={18} />
+                          </button>
+                        )}
+                        {user?.permissions?.roles?.some((role) =>
+                          role.features.some((feature) => feature.id === "FEAT003" && feature.permissions.delete),
+                        ) ? (
+                          <button className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+                            <Trash2 size={18} />
+                          </button>
+                        ) : (
+                          <button className="text-gray-400 dark:text-gray-600 cursor-not-allowed" disabled>
+                            <Trash2 size={18} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -229,11 +302,44 @@ const Roles = () => {
                 key={role.id}
                 className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium text-lg text-gray-900 dark:text-white">{role.name}</h3>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">Created {role.createdAt}</span>
+                      <div className="flex items-center mt-1 gap-2">
+                        <span className="px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 rounded-md">
+                          ID: {role.id}
+                        </span>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-md ${
+                            role.hierarchyLevel <= 20
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                              : role.hierarchyLevel <= 50
+                                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          Level: {role.hierarchyLevel}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openPermissionModal(role)}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                        title="Edit Role Permissions"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      {role.id !== 1 && (
+                        <button
+                          onClick={() => handleDeleteRole(role)}
+                          className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                          title="Delete Role"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
