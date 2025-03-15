@@ -31,6 +31,7 @@ import DeptCreateRole from "./dept/CreateRole"
 import DeptFeatures from "./dept/Features"
 import DeptInventoryRequests from "./dept/InventoryRequests"
 import DeptInventoryAsk from "./dept/InventoryAsk"
+import ExamplePermissionPage from "./dept/ExamplePermissionPage"
 
 import DevLayout from "../components/dev/Layout"
 import DeptLayout from "../components/dept/Layout"
@@ -85,6 +86,7 @@ export default function DashboardRouter() {
         <Route path="roles" element={<DeptRoles />} />
         <Route path="roles/create" element={<DeptCreateRole />} />
         <Route path="features" element={<DeptFeatures />} />
+        <Route path="permissions-example" element={<ExamplePermissionPage />} />
       </Route>
 
       {/* Fallback route */}

@@ -23,15 +23,17 @@ import {
 import apiClient from "../../utils/apiClient"
 import ProfileImageModal from "../common/ProfileImageModal"
 
+// Map navigation items to feature IDs
 const navItems = [
-  { path: "/dashboard/dept", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/dashboard/dept/tenders", label: "Tenders", icon: FileText },
-  { path: "/dashboard/dept/clashes", label: "Clashes", icon: AlertTriangle },
-  { path: "/dashboard/dept/issues", label: "Issues", icon: AlertCircle },
-  { path: "/dashboard/dept/inventory", label: "Inventory", icon: Package },
-  { path: "/dashboard/dept/users", label: "Users", icon: Users },
-  { path: "/dashboard/dept/roles", label: "Roles", icon: Shield },
-  { path: "/dashboard/dept/features", label: "Features", icon: Settings },
+  { path: "/dashboard/dept", label: "Dashboard", icon: LayoutDashboard, featureId: null }, // Dashboard is always accessible
+  { path: "/dashboard/dept/tenders", label: "Tenders", icon: FileText, featureId: "FEAT_TENDERS" },
+  { path: "/dashboard/dept/clashes", label: "Clashes", icon: AlertTriangle, featureId: "FEAT_CLASHES" },
+  { path: "/dashboard/dept/issues", label: "Issues", icon: AlertCircle, featureId: "FEAT_ISSUES" },
+  { path: "/dashboard/dept/inventory", label: "Inventory", icon: Package, featureId: "FEAT_INVENTORY" },
+  { path: "/dashboard/dept/users", label: "Users", icon: Users, featureId: "FEAT_USER_MGMT" },
+  { path: "/dashboard/dept/roles", label: "Roles", icon: Shield, featureId: "FEAT_ROLE_MGMT" },
+  { path: "/dashboard/dept/features", label: "Features", icon: Settings, featureId: "FEAT_DEPT_MGMT" },
+  { path: "/dashboard/dept/permissions-example", label: "Permissions Example", icon: Shield, featureId: null }, // Example page is accessible to everyone
 ]
 
 const quickLinks = [{ label: "Logout", icon: LogOut }]
@@ -39,7 +41,7 @@ const quickLinks = [{ label: "Logout", icon: LogOut }]
 const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, toggleDarkMode }) => {
   const location = useLocation()
   const [hoverIndex, setHoverIndex] = useState(null)
-  const { logout, user } = useAuth()
+  const { logout, user, permissions, hasPermission } = useAuth()
 
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [profileImage, setProfileImage] = useState(null)
@@ -107,41 +109,55 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
 
   // Filter nav items based on user permissions
   const filteredNavItems = navItems.filter((item) => {
-    // Extract feature name from path
-    const pathSegments = item.path.split("/")
-    const featureName = pathSegments[pathSegments.length - 1]
-
-    // Check if user has permission to access this feature
-    if (user && user.permissions && user.permissions.can) {
-      switch (featureName) {
-        case "users":
-          return user.permissions.can.manageUsers
-        case "roles":
-          return user.permissions.can.manageRoles
-        case "features":
-          return user.permissions.can.manageFeatures
-        case "inventory":
-          return user.permissions.can.manageInventory
-        case "issues":
-          return user.permissions.can.manageIssues
-        case "clashes":
-          // Everyone can see clashes
-          return true
-        case "tenders":
-          // Everyone can see tenders
-          return true
-        case "dept":
-          // Dashboard is accessible to everyone
-          return true
-        default:
-          return true
-      }
+    // Dashboard is always accessible
+    if (!item.featureId) {
+      return true
     }
-    return true // If permissions not loaded yet, show all
+    
+    // Check if user has at least read permission for this feature
+    return hasPermission(item.featureId, "read")
   })
 
   return (
     <>
+      {/* Custom scrollbar styles */}
+      <style jsx="true">{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: rgba(156, 163, 175, 0.5);
+          border-radius: 20px;
+          border: transparent;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(156, 163, 175, 0.8);
+        }
+        
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: rgba(75, 85, 99, 0.5);
+        }
+        
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(75, 85, 99, 0.8);
+        }
+        
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+        }
+        
+        .dark .custom-scrollbar {
+          scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+        }
+      `}</style>
+
       {/* Backdrop for mobile - with animation */}
       {isMobile && (
         <div
@@ -187,7 +203,7 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
         </div>
 
         {/* Main navigation */}
-        <nav className="p-3 flex-grow overflow-y-auto">
+        <nav className="p-3 flex-grow overflow-y-auto custom-scrollbar">
           <div className={`${!isCollapsed || isMobile ? "mb-3 px-3" : "mb-2"}`}>
             {(!isCollapsed || isMobile) && (
               <p className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">Main Navigation</p>
@@ -196,42 +212,48 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
           </div>
 
           <div className="space-y-1">
-            {filteredNavItems.map((item, index) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={handleLinkClick}
-                className={`flex items-center px-3 py-2.5 rounded-lg transition-all ${
-                  location.pathname === item.path
-                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                } ${hoverIndex === index ? "shadow-sm" : ""}`}
-                onMouseEnter={() => setHoverIndex(index)}
-                onMouseLeave={() => setHoverIndex(null)}
-              >
-                <div
-                  className={`${
-                    location.pathname === item.path ? "bg-blue-100 dark:bg-blue-800" : "bg-gray-100 dark:bg-gray-700"
-                  } p-2 rounded-lg mr-3`}
+            {filteredNavItems.map((item, index) => {
+              // Determine permissions for this feature
+              const canRead = !item.featureId || hasPermission(item.featureId, "read")
+              const canWrite = !item.featureId || hasPermission(item.featureId, "write")
+              const canUpdate = !item.featureId || hasPermission(item.featureId, "update")
+              const canDelete = !item.featureId || hasPermission(item.featureId, "delete")
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={handleLinkClick}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all ${
+                    location.pathname === item.path
+                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  } ${!canRead && "opacity-50 pointer-events-none"}`}
                 >
-                  <item.icon
-                    className={`h-5 w-5 ${
-                      location.pathname === item.path
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-500 dark:text-gray-400"
-                    }`}
-                  />
-                </div>
-                {(!isCollapsed || isMobile) && (
-                  <span className={`font-medium ${location.pathname === item.path && "font-semibold"}`}>
-                    {item.label}
-                  </span>
-                )}
-                {(!isCollapsed || isMobile) && location.pathname === item.path && (
-                  <div className="ml-auto w-1.5 h-5 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
-                )}
-              </Link>
-            ))}
+                  <div
+                    className={`${
+                      location.pathname === item.path ? "bg-blue-100 dark:bg-blue-800" : "bg-gray-100 dark:bg-gray-700"
+                    } p-2 rounded-lg mr-3`}
+                  >
+                    <item.icon
+                      className={`h-5 w-5 ${
+                        location.pathname === item.path
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
+                    />
+                  </div>
+                  {(!isCollapsed || isMobile) && (
+                    <span className={`font-medium ${location.pathname === item.path && "font-semibold"}`}>
+                      {item.label}
+                    </span>
+                  )}
+                  {(!isCollapsed || isMobile) && location.pathname === item.path && (
+                    <div className="ml-auto w-1.5 h-5 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+                  )}
+                </Link>
+              )
+            })}
           </div>
         </nav>
 

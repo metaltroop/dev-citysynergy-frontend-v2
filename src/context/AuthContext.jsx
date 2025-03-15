@@ -9,14 +9,18 @@ const AuthContext = createContext(null)
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [permissions, setPermissions] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     // Check if user is authenticated on initial load
     const token = localStorage.getItem("token")
     const userData = JSON.parse(localStorage.getItem("userData"))
+    const permissionsData = JSON.parse(localStorage.getItem("permissions"))
+    
     if (token && userData) {
       setUser(userData)
+      setPermissions(permissionsData)
       setIsAuthenticated(true)
     }
   }, [])
@@ -35,15 +39,12 @@ export const AuthProvider = ({ children }) => {
 
         const { user, accessToken, permissions } = response.data.data
 
-        // Add permissions to user object
-        const userWithPermissions = {
-          ...user,
-          permissions,
-        }
-
         localStorage.setItem("token", accessToken)
-        localStorage.setItem("userData", JSON.stringify(userWithPermissions))
-        setUser(userWithPermissions)
+        localStorage.setItem("userData", JSON.stringify(user))
+        localStorage.setItem("permissions", JSON.stringify(permissions))
+        
+        setUser(user)
+        setPermissions(permissions)
         setIsAuthenticated(true)
         navigate(user.type === "dev" ? "/dashboard/dev" : "/dashboard/dept")
         return { success: true }
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }) => {
     // Clear localStorage
     localStorage.removeItem("token")
     localStorage.removeItem("userData")
+    localStorage.removeItem("permissions")
     localStorage.removeItem("profileImage")
 
     // Clear cookies
@@ -67,6 +69,7 @@ export const AuthProvider = ({ children }) => {
     })
 
     setUser(null)
+    setPermissions(null)
     setIsAuthenticated(false)
     navigate("/login")
   }
@@ -90,8 +93,40 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Helper function to check if user has specific permission for a feature
+  const hasPermission = (featureId, permissionType) => {
+    if (!permissions || !permissions.roles || permissions.roles.length === 0) {
+      return false
+    }
+
+    // Look through all roles
+    for (const role of permissions.roles) {
+      // Find the feature in this role
+      const feature = role.features.find(f => f.id === featureId)
+      
+      // If feature exists and has the requested permission
+      if (feature && feature.permissions && feature.permissions[permissionType]) {
+        return true
+      }
+    }
+    
+    return false
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, verifyOtp }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        isAuthenticated, 
+        permissions, 
+        login, 
+        logout, 
+        verifyOtp,
+        hasPermission
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   )
 }
 

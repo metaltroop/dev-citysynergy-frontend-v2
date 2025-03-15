@@ -32,8 +32,9 @@ import DeptCreateUser from "./pages/dept/CreateUser"
 import DeptRoles from "./pages/dept/Roles"
 import DeptCreateRole from "./pages/dept/CreateRole"
 import DeptFeatures from "./pages/dept/Features"
-import DeptInventoryRequests from "./pages/dept/inventoryRequests"
+import DeptInventoryRequests from "./pages/dept/InventoryRequests"
 import DeptInventoryAsk from "./pages/dept/InventoryAsk"
+import ExamplePermissionPage from "./pages/dept/ExamplePermissionPage"
 import { useAuth } from "./context/AuthContext"
 import { ToastProvider } from "./context/ToastContext"
 import ErrorBoundary from "./components/ErrorBoundary"
@@ -112,6 +113,7 @@ export default function App() {
               <Route path="dept/roles" element={<DeptRoles />} />
               <Route path="dept/roles/create" element={<DeptCreateRole />} />
               <Route path="dept/features" element={<DeptFeatures />} />
+              <Route path="dept/permissions-example" element={<ExamplePermissionPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
