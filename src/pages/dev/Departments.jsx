@@ -400,36 +400,37 @@ export default function DepartmentsPage() {
             </table>
           </div>
         ) : (
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredDepartments.map((dept) => (
               <div
                 key={dept.deptId}
-                className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
               >
+                {/* Department header with color-coded badge */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium text-lg text-gray-900 dark:text-white">{dept.deptName}</h3>
                       <div className="flex items-center mt-1">
-                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-md inline-block">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300">
                           {dept.deptCode}
                         </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                          ID: {dept.deptId.substring(0, 8)}...
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                          ID: <span className="font-medium">{dept.deptId}</span>
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => fetchDepartmentInfo(dept.deptId)}
-                        className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-full transition-colors"
-                        title="View Details"
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                        title="View Department"
                       >
                         <Info className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleEditDepartment(dept)}
-                        className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-full transition-colors"
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
                         title="Edit Department"
                       >
                         <Edit className="h-4 w-4" />
@@ -439,7 +440,7 @@ export default function DepartmentsPage() {
                           setDeptToDelete(dept)
                           setDeleteModalOpen(true)
                         }}
-                        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-full transition-colors"
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-colors"
                         title="Delete Department"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -447,40 +448,41 @@ export default function DepartmentsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="p-4 dark:bg-gray-800">
-                  <div className="text-sm mb-3">
-                    <div className="font-medium mb-1 text-gray-900 dark:text-white">Department Head</div>
-                    {dept.deptHead ? (
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium text-xs mr-2">
-                          {dept.deptHead.username.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="text-gray-700 dark:text-gray-300">{dept.deptHead.username}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{dept.deptHead.email}</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center text-gray-500 dark:text-gray-400">
-                        <div className="h-8 w-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 font-medium text-xs mr-2">
-                          NA
-                        </div>
-                        <span>No head assigned</span>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded p-2 text-center">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Users</div>
-                      <div className="font-medium text-blue-600 dark:text-blue-400">{dept.users?.length || 0}</div>
+                {/* Department head section */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Department Head</h4>
+                  <div className="flex items-center">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-medium text-sm">
+                      {dept.deptHead ? dept.deptHead.username.substring(0, 2).toUpperCase() : "NA"}
                     </div>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded p-2 text-center">
-                      <div className="text-xs text-gray-500 dark:text-gray-400">Created</div>
-                      <div className="font-medium text-gray-600 dark:text-gray-300">
-                        {new Date(dept.createdAt).toLocaleDateString()}
-                      </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {dept.deptHead ? dept.deptHead.username : "Not Assigned"}
+                      </p>
+                      <p
+                        className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"
+                        title={dept.deptHead ? dept.deptHead.email : ""}
+                      >
+                        {dept.deptHead ? dept.deptHead.email : "No email available"}
+                      </p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Department stats */}
+                <div className="grid grid-cols-2 divide-x divide-gray-200 dark:divide-gray-700">
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Users</p>
+                    <p className="text-xl font-semibold text-blue-600 dark:text-blue-400">
+                      {dept.users ? dept.users.length : 0}
+                    </p>
+                  </div>
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Created</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {new Date(dept.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -587,7 +589,7 @@ export default function DepartmentsPage() {
                       <p className="text-lg font-medium dark:text-white">
                         {selectedDeptInfo.department.deptHead.username}
                       </p>
-                      <p className="text-sm text-gray-500">{selectedDeptInfo.department.deptHead.email}</p>
+                      <p className="text-sm text-gray-500 break-words">{selectedDeptInfo.department.deptHead.email}</p>
                     </div>
                   ) : (
                     <p className="text-gray-500 italic">No department head assigned</p>
@@ -612,7 +614,7 @@ export default function DepartmentsPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div>
                             <p className="font-medium dark:text-white">{user.username}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
+                            <p className="text-sm text-gray-500 break-words">{user.email}</p>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {user.roles.map((role) => (

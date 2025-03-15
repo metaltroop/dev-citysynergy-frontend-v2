@@ -118,7 +118,9 @@ const Modal = ({ isOpen, onClose, title, children, originPosition = null, maxWid
             <X size={20} />
           </button>
         </div>
-        <div className="p-6 dark:text-gray-200">{children}</div>
+        <div className="p-6 dark:text-gray-200 overflow-hidden">
+          <div className="break-words overflow-wrap-anywhere">{children}</div>
+        </div>
       </div>
     </div>
   )

@@ -102,6 +102,7 @@ export default function Roles() {
   }
 
   const initializePermissions = (roleData) => {
+    
     const initialPermissions = {}
     if (roleData && roleData.features) {
       roleData.features.forEach((feature) => {
@@ -461,7 +462,7 @@ export default function Roles() {
                             ID: {role.roleId}
                           </span>
                           <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                            Hierarchy: <span className="font-medium">50</span>
+                            Hierarchy: <span className="font-medium">{role.hierarchyLevel}</span>
                           </span>
                         </div>
                       </div>
