@@ -12,22 +12,29 @@ import { useLoading } from "../../context/LoadingContext"
 
 // Feature IDs for permissions
 const INVENTORY_FEATURES = {
-    VIEW: "FEAT_INVENTORY",
-    CREATE: "FEAT_INVENTORY",
-    SHARE: "FEAT_INVENTORY",
-    DELETE: "FEAT_INVENTORY",
-    MANAGE_REQUESTS: "FEAT_INVENTORY",
-  }
+  VIEW: "FEAT_INVENTORY",
+  CREATE: "FEAT_INVENTORY",
+  SHARE: "FEAT_INVENTORY",
+  DELETE: "FEAT_INVENTORY",
+  MANAGE_REQUESTS: "FEAT_INVENTORY",
+}
 
 const InventoryHistory = () => {
   const navigate = useNavigate()
-  const { showToast } = useToast()
-  const { setLoading } = useLoading()
-  console.log("Inventory permissions:", {
-    featureId: INVENTORY_FEATURES.VIEW,
-    userPermissions: JSON.stringify(permissions, null, 2)
-  })
-  
+  // Replace the useToast hook usage
+  // const { showToast } = useToast()
+
+  // With this implementation that handles missing context
+  const toastContext = useToast()
+  const showToast = toastContext?.showToast || (() => {})
+
+  // Replace the useLoading hook usage
+  // const { setLoading } = useLoading()
+
+  // With this implementation that handles missing context
+  const loadingContext = useLoading()
+  const setLoading = loadingContext?.setLoading || (() => {})
+
   const [historyItems, setHistoryItems] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
