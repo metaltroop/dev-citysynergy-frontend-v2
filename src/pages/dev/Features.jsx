@@ -25,7 +25,7 @@ export default function Features() {
   const fetchFeatures = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get("/features/devfeatures")
+      const response = await apiClient.get("/features/dev")
       if (response.data.success) {
         setFeatures(response.data.data)
       } else {

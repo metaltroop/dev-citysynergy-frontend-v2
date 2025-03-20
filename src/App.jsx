@@ -33,6 +33,7 @@ import DeptRoles from "./pages/dept/Roles"
 import DeptCreateRole from "./pages/dept/CreateRole"
 import DeptFeatures from "./pages/dept/Features"
 import DeptInventoryRequests from "./pages/dept/InventoryRequests"
+import DeptInventoryHistory from "./pages/dept/InventoryHistory"
 import DeptInventoryAsk from "./pages/dept/InventoryAsk"
 import ExamplePermissionPage from "./pages/dept/ExamplePermissionPage"
 import { useAuth } from "./context/AuthContext"
@@ -108,6 +109,7 @@ export default function App() {
               <Route path="dept/inventory" element={<DeptInventory />} />
               <Route path="dept/inventory/requests" element={<DeptInventoryRequests />} />
               <Route path="dept/inventory/ask" element={<DeptInventoryAsk />} />
+              <Route path="dept/inventory/history" element={<DeptInventoryHistory/>}/>
               <Route path="dept/users" element={<DeptUsers />} />
               <Route path="dept/users/create" element={<DeptCreateUser />} />
               <Route path="dept/roles" element={<DeptRoles />} />

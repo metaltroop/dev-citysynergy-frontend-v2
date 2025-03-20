@@ -22,6 +22,9 @@ import Toast from "../../components/common/Toast"
 import SortDropdown from "../../components/common/SortDropdown"
 import ProfileImage from "../../components/common/ProfileImage"
 import { useAuth } from "../../context/AuthContext"
+import PermissionButton from "../../components/common/PermissionButton"
+import PermissionGuard from "../../components/common/PermissionGuard"
+import { FEATURES, PERMISSIONS } from "../../utils/permissionUtils"
 
 const isDeleteProtected = (user) => {
   return user.roles.some(
@@ -67,6 +70,8 @@ export default function UsersPage() {
   const [sortBy, setSortBy] = useState("")
   const [sortOrder, setSortOrder] = useState("asc")
 
+  const navigate = useNavigate()
+
   // Get auth context for permissions
   const { user: currentUser } = useAuth()
 
@@ -84,24 +89,6 @@ export default function UsersPage() {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [])
-
-  const navigate = useNavigate()
-
-  // Check user permissions for different actions
-  const checkPermission = (action) => {
-    if (!currentUser || !currentUser.permissions || !currentUser.permissions.roles) {
-      return false
-    }
-
-    // Find the feature in user's roles
-    return currentUser.permissions.roles.some((role) =>
-      role.features.some((feature) => feature.id === "FEAT001" && feature.permissions[action]),
-    )
-  }
-
-  const canAddUser = checkPermission("write")
-  const canUpdateUser = checkPermission("update")
-  const canDeleteUser = checkPermission("delete")
 
   const getUniqueDepartments = () => {
     const departments = users
@@ -259,7 +246,7 @@ export default function UsersPage() {
   }
 
   const isResetDisabled = (user) => {
-    return isResetProtected(user) || getUserStatus(user) === "partially-inactive" || !canUpdateUser
+    return isResetProtected(user) || getUserStatus(user) === "partially-inactive"
   }
 
   const handleResetPassword = (user) => {
@@ -314,7 +301,7 @@ export default function UsersPage() {
   }
 
   const isDeleteDisabled = (user) => {
-    return isDeleteProtected(user) || !canDeleteUser
+    return isDeleteProtected(user)
   }
 
   const handleDeleteUser = (user) => {
@@ -468,12 +455,14 @@ export default function UsersPage() {
           <p className="text-gray-600 dark:text-gray-400">Manage system users and their permissions</p>
         </div>
         <div className="flex gap-3">
-          {canAddUser && (
-            <Button onClick={() => navigate("/dashboard/dev/users/create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
-          )}
+          <PermissionButton
+            featureId={FEATURES.DEV_USERS}
+            permission={PERMISSIONS.WRITE}
+            onClick={() => navigate("/dashboard/dev/users/create")}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
+          </PermissionButton>
         </div>
       </div>
 
@@ -765,46 +754,52 @@ export default function UsersPage() {
                       <td className="px-6 py-4">
                         <div className="flex justify-end gap-2">
                           {/* Delete Button - disabled for both DevAdmin and Department Head */}
-                          <button
-                            className={`p-1 rounded-full transition-colors ${
-                              isDeleteDisabled(user)
-                                ? "text-gray-400 cursor-not-allowed"
-                                : "text-red-500 hover:text-red-700 hover:bg-red-50"
-                            }`}
-                            onClick={() => !isDeleteDisabled(user) && handleDeleteUser(user)}
-                            disabled={isDeleteDisabled(user)}
-                            title={
-                              isDeleteProtected(user)
-                                ? "Cannot delete protected user"
-                                : !canDeleteUser
-                                  ? "You don't have permission to delete users"
-                                  : "Delete user"
-                            }
+                          <PermissionGuard
+                            featureId={FEATURES.DEV_USERS}
+                            permission={PERMISSIONS.DELETE}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                            <button
+                              className={`p-1 rounded-full transition-colors ${
+                                isDeleteDisabled(user)
+                                  ? "text-gray-400 cursor-not-allowed"
+                                  : "text-red-500 hover:text-red-700 hover:bg-red-50"
+                              }`}
+                              onClick={() => !isDeleteDisabled(user) && handleDeleteUser(user)}
+                              disabled={isDeleteDisabled(user)}
+                              title={
+                                isDeleteProtected(user)
+                                  ? "Cannot delete protected user"
+                                  : "Delete user"
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </PermissionGuard>
 
                           {/* Reset Password Button - disabled only for DevAdmin */}
-                          <button
-                            className={`p-1 rounded-full transition-colors ${
-                              isResetDisabled(user)
-                                ? "text-gray-400 cursor-not-allowed"
-                                : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
-                            }`}
-                            onClick={() => !isResetDisabled(user) && handleResetPassword(user)}
-                            disabled={isResetDisabled(user)}
-                            title={
-                              isResetProtected(user)
-                                ? "Cannot reset DevAdmin password"
-                                : getUserStatus(user) === "partially-inactive"
-                                  ? "Cannot reset password for partially inactive user"
-                                  : !canUpdateUser
-                                    ? "You don't have permission to reset passwords"
-                                    : "Reset password"
-                            }
+                          <PermissionGuard
+                            featureId={FEATURES.DEV_USERS}
+                            permission={PERMISSIONS.UPDATE}
                           >
-                            <Key className="h-4 w-4" />
-                          </button>
+                            <button
+                              className={`p-1 rounded-full transition-colors ${
+                                isResetDisabled(user)
+                                  ? "text-gray-400 cursor-not-allowed"
+                                  : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                              }`}
+                              onClick={() => !isResetDisabled(user) && handleResetPassword(user)}
+                              disabled={isResetDisabled(user)}
+                              title={
+                                isResetProtected(user)
+                                  ? "Cannot reset DevAdmin password"
+                                  : getUserStatus(user) === "partially-inactive"
+                                    ? "Cannot reset password for partially inactive user"
+                                    : "Reset password"
+                              }
+                            >
+                              <Key className="h-4 w-4" />
+                            </button>
+                          </PermissionGuard>
                         </div>
                       </td>
                     </tr>

@@ -36,7 +36,7 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
   
   const location = useLocation()
   const [hoverIndex, setHoverIndex] = useState(null)
-  const { logout, user } = useAuth()
+  const { logout, user, hasPermission } = useAuth()
 
   const [ setUser] = useState({
     name: "John Doe",
@@ -79,21 +79,14 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
 
   // Filter nav items based on user permissions
   const filteredNavItems = navItems.filter((item) => {
-    // Check if user has permission to access this feature
-    if (user && user.permissions && user.permissions.roles) {
-      const featureId = item.featureId
-
-      // Dashboard is always accessible
-      if (item.path === "/dashboard/dev") return true
-
-      // Check if any role has read permission for this feature
-      return user.permissions.roles.some((role) =>
-        role.features.some((feature) => feature.id === featureId && feature.permissions.read),
-      )
-    }
-
-    // If permissions not loaded yet or no specific feature ID, show the item
-    return true
+    // Dashboard is always accessible
+    if (item.path === "/dashboard/dev") return true
+    
+    // Check if user has at least read permission for this feature
+    if (!item.featureId) return true
+    
+    // Use the hasPermission function from AuthContext
+    return hasPermission(item.featureId, "read")
   })
 
   if (!sidebarVisible) {

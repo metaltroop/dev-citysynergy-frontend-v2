@@ -31,6 +31,7 @@ import DeptCreateRole from "./dept/CreateRole"
 import DeptFeatures from "./dept/Features"
 import DeptInventoryRequests from "./dept/InventoryRequests"
 import DeptInventoryAsk from "./dept/InventoryAsk"
+import DeptInventoryHistory from "./dept/InventoryHistory"
 import ExamplePermissionPage from "./dept/ExamplePermissionPage"
 
 import DevLayout from "../components/dev/Layout"
@@ -81,6 +82,7 @@ export default function DashboardRouter() {
         <Route path="inventory" element={<DeptInventory />} />
         <Route path="inventory/requests" element={<DeptInventoryRequests />} />
         <Route path="inventory/ask" element={<DeptInventoryAsk />} />
+        <Route path="inventory/history" element={<DeptInventoryHistory />} />
         <Route path="users" element={<DeptUsers />} />
         <Route path="users/create" element={<DeptCreateUser />} />
         <Route path="roles" element={<DeptRoles />} />
