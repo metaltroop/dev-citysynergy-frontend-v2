@@ -93,7 +93,7 @@ const Clashes = () => {
       </div>
 
       {/* Clashes Stats */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col">
           <div className="flex items-center justify-between">
             <div className="text-gray-600 dark:text-gray-400 text-sm font-medium">Total Clashes</div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, Trash2, Shield, Users, Lock, LayoutGrid, List, Info, RefreshCcw, Eye } from "lucide-react"
+import { Search, Plus, Trash2, Shield, Users, Lock,Settings, LayoutGrid, Edit,List, Info, RefreshCcw, Eye } from "lucide-react"
 import Button from "../../components/dept/Button"
 import SlideOver from "../../components/dept/SlideOver"
 import Modal from "../../components/dept/Modal"
@@ -11,25 +11,28 @@ import DeptPermissionButton from "../../components/dept/DeptPermissionButton"
 import apiClient from "../../utils/apiClient"
 import { useToast } from "../../context/ToastContext"
 import { useLoading } from "../../context/LoadingContext"
+import { useViewMode } from "../../hooks/useViewMode"
+import CustomDropdown from "../../components/common/CustomDropdown"
 
 const Roles = () => {
   const navigate = useNavigate()
   // Replace the useToast hook usage
-  const toastContext = useToast()
-  const showToast = toastContext?.showToast || (() => {})
+  const { addToast } = useToast()
+  // const showToast = toastContext?.showToast || (() => {})
   // Replace the useLoading hook usage
   const loadingContext = useLoading()
   const setLoading = loadingContext?.setLoading || (() => {})
   const [searchQuery, setSearchQuery] = useState("")
-  const [viewMode, setViewMode] = useState("table")
+  const initialViewMode = useViewMode()
+  const [viewMode, setViewMode] = useState(initialViewMode)
   const [isPermissionModalOpen, setIsPermissionModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false)
   const [isViewRoleModalOpen, setIsViewRoleModalOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState(null)
   const [permissions, setPermissions] = useState({})
-  const [roles, setRoles] = useState([])
-  const [roleFeatures, setRoleFeatures] = useState([])
+  const [roles, setRoles] = useState([]); 
+    const [roleFeatures, setRoleFeatures] = useState([])
   const [newRole, setNewRole] = useState({
     roleName: "",
     roleDescription: "",
@@ -39,11 +42,13 @@ const Roles = () => {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSavingPermissions, setIsSavingPermissions] = useState(false)
   const [isDeletingRole, setIsDeletingRole] = useState(false)
+  const [loadingPermissions , setLoadingPermissions] = useState(false)
 
   // Fetch roles on component mount
   useEffect(() => {
+    setViewMode(initialViewMode)
     fetchRoles()
-  }, [])
+  }, [initialViewMode])
 
   // Fetch roles from API
   const fetchRoles = async () => {
@@ -54,11 +59,11 @@ const Roles = () => {
       if (response.data.success) {
         setRoles(response.data.data.roles)
       } else {
-        showToast("Failed to fetch roles", "error")
+        addToast("Roles fetched succefully", "success")
       }
     } catch (error) {
       console.error("Error fetching roles:", error)
-      showToast("Error fetching roles", "error")
+      addToast("Error fetching Roles", "error")
     } finally {
       setIsRefreshing(false)
       setLoading(false)
@@ -100,11 +105,11 @@ const Roles = () => {
         initializePermissions(response.data.data.features)
         setIsPermissionModalOpen(true)
       } else {
-        showToast("Failed to fetch role details", "error")
+        addToast("Failed to fetch role details", "error")
       }
     } catch (error) {
       console.error("Error fetching role details:", error)
-      showToast("Error fetching role details", "error")
+      addToast("Error fetching role details", "error")
     } finally {
       setLoading(false)
     }
@@ -120,11 +125,11 @@ const Roles = () => {
         setRoleFeatures(response.data.data.features)
         setIsViewRoleModalOpen(true)
       } else {
-        showToast("Failed to fetch role details", "error")
+        addToast("Failed to fetch role details", "error")
       }
     } catch (error) {
       console.error("Error fetching role details:", error)
-      showToast("Error fetching role details", "error")
+      addToast("Error fetching role details", "error")
     } finally {
       setLoading(false)
     }
@@ -150,15 +155,15 @@ const Roles = () => {
       })
 
       if (response.data.success) {
-        showToast("Permissions updated successfully", "success")
+        addToast("Permissions updated successfully", "success")
         setIsPermissionModalOpen(false)
         fetchRoles() // Refresh roles
       } else {
-        showToast(response.data.message || "Failed to update permissions", "error")
+        addToast(response.data.message || "Failed to update permissions", "error")
       }
     } catch (error) {
       console.error("Error updating permissions:", error)
-      showToast("Error updating permissions", "error")
+      addToast("Error updating permissions", "error")
     } finally {
       setIsSavingPermissions(false)
       setLoading(false)
@@ -178,15 +183,15 @@ const Roles = () => {
       setLoading(true)
       const response = await apiClient.put(`/roles/department/${selectedRole.roleId}/delete`)
       if (response.data.success) {
-        showToast("Role deleted successfully", "success")
+        addToast("Role deleted successfully", "success")
         setIsDeleteModalOpen(false)
         fetchRoles() // Refresh roles
       } else {
-        showToast(response.data.message || "Failed to delete role", "error")
+        addToast(response.data.message || "Failed to delete role", "error")
       }
     } catch (error) {
       console.error("Error deleting role:", error)
-      showToast("Error deleting role", "error")
+      addToast("Error deleting role", "error")
     } finally {
       setIsDeletingRole(false)
       setLoading(false)
@@ -215,7 +220,7 @@ const Roles = () => {
   // Create new role
   const createRole = async () => {
     if (!newRole.roleName.trim() || !newRole.roleDescription.trim()) {
-      showToast("Please fill in all required fields", "error")
+      addToast("Please fill in all required fields", "error")
       return
     }
 
@@ -228,15 +233,15 @@ const Roles = () => {
       })
 
       if (response.data.success) {
-        showToast("Role created successfully", "success")
+        addToast("Role created successfully", "success")
         setIsAddRoleModalOpen(false)
         fetchRoles() // Refresh roles
       } else {
-        showToast(response.data.message || "Failed to create role", "error")
+        addToast(response.data.message || "Failed to create role", "error")
       }
     } catch (error) {
       console.error("Error creating role:", error)
-      showToast("Error creating role", "error")
+      addToast("Error creating role", "error")
     } finally {
       setIsLoading(false)
     }
@@ -294,7 +299,7 @@ const Roles = () => {
         </div>
 
         {/* Stats */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col">
             <div className="flex items-center justify-between">
               <div className="text-gray-600 dark:text-gray-400 text-sm font-medium">Total Roles</div>
@@ -367,28 +372,84 @@ const Roles = () => {
               <p className="text-gray-500 dark:text-gray-400">Loading roles...</p>
             </div>
           ) : viewMode === "table" ? (
-            <div className="overflow-x-auto">
+            <div className="w-full">
+            {/* Mobile-specific table design that matches dark theme */}
+            <div className="block sm:hidden space-y-2">
+              {filteredRoles.map((role) => (
+                <div key={role.roleId} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+                  <div className="px-4 py-3 flex justify-between items-center">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{role.roleName}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{role.roleId}</div>
+                    </div>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded ${getHierarchyLevelBadgeColor(role.hierarchyLevel)}`}
+                    >
+                      {role.hierarchyLevel}
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-gray-700"></div>
+                  <div className="px-4 py-2.5 flex justify-between items-center">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(role.createdAt).toLocaleDateString()}
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => viewRoleDetails(role)}
+                        className="p-1.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100 rounded-md transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <DeptPermissionButton
+                        featureId="FEAT_ROLE_MGMT"
+                        permissionType="update"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openPermissionModal(role)}
+                        className="p-1.5 bg-blue-500 dark:bg-blue-600 text-white dark:text-blue-100 hover:bg-blue-600 dark:hover:bg-blue-700 rounded-md transition-colors"
+                      >
+                        <Settings size={16} />
+                      </DeptPermissionButton>
+                      <DeptPermissionButton
+                        featureId="FEAT_ROLE_MGMT"
+                        permissionType="delete"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleDeleteRole(role)}
+                        className="p-1.5 bg-red-500 dark:bg-red-600 text-white dark:text-red-100 hover:bg-red-600 dark:hover:bg-red-700 rounded-md transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </DeptPermissionButton>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          
+            {/* Desktop table for larger screens */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Role Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Hierarchy Level
-                      <span className="ml-1 inline-block">
-                        <button title="Hierarchy determines which roles a user can manage. Lower numbers have higher privileges.">
-                          <Info className="h-3.5 w-3.5 text-gray-400" />
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      <span className="flex items-center">
+                        Hierarchy Level
+                        <button title="Hierarchy determines which roles a user can manage. Lower numbers have higher privileges." className="ml-1">
+                          <Info className="h-3.5 w-3.5 text-gray-500 dark:text-gray-300" />
                         </button>
                       </span>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Description
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Created
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -397,7 +458,7 @@ const Roles = () => {
                   {filteredRoles.map((role) => (
                     <tr key={role.roleId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{role.roleName}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{role.roleName}</div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">ID: {role.roleId}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -410,10 +471,10 @@ const Roles = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-500 dark:text-gray-300">{role.description}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{role.description}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500 dark:text-gray-300">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           {new Date(role.createdAt).toLocaleDateString()}
                         </div>
                       </td>
@@ -421,7 +482,7 @@ const Roles = () => {
                         <div className="flex justify-end space-x-2">
                           <button
                             onClick={() => viewRoleDetails(role)}
-                            className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-full transition-colors"
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
@@ -429,17 +490,19 @@ const Roles = () => {
                           <DeptPermissionButton
                             featureId="FEAT_ROLE_MGMT"
                             permissionType="update"
+                            variant="secondary"
+                            size="sm"
                             onClick={() => openPermissionModal(role)}
                           >
-                            <Button variant="secondary" size="sm">
-                              Update Permissions
-                            </Button>
+                            <Shield size={18} />
                           </DeptPermissionButton>
                           <DeptPermissionButton
                             featureId="FEAT_ROLE_MGMT"
                             permissionType="delete"
+                            variant="secondary"
+                            size="sm"
                             onClick={() => handleDeleteRole(role)}
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                            className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                           >
                             <Trash2 size={18} />
                           </DeptPermissionButton>
@@ -450,6 +513,7 @@ const Roles = () => {
                 </tbody>
               </table>
             </div>
+          </div>
           ) : (
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredRoles.map((role) => (
@@ -481,11 +545,12 @@ const Roles = () => {
                           <Eye className="h-4 w-4" />
                         </button>
                         <DeptPermissionButton
-                          featureId="FEAT_ROLE_MGMT"
-                          permissionType="delete"
-                          onClick={() => handleDeleteRole(role)}
-                          className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-lg transition-colors"
-                          title="Delete Role"
+                           featureId="FEAT_ROLE_MGMT"
+                           permissionType="delete"
+                           variant="secondary"
+                           size="sm"
+                           onClick={() => handleDeleteRole(role)}
+                           className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         >
                           <Trash2 className="h-4 w-4" />
                         </DeptPermissionButton>
@@ -506,11 +571,12 @@ const Roles = () => {
                         <DeptPermissionButton
                           featureId="FEAT_ROLE_MGMT"
                           permissionType="update"
+                           variant="secondary" size="sm"
                           onClick={() => openPermissionModal(role)}
                         >
-                          <Button variant="secondary" size="sm">
+                         
                             Permissions
-                          </Button>
+                        
                         </DeptPermissionButton>
                       </div>
                     </div>
@@ -639,12 +705,14 @@ const Roles = () => {
                 <DeptPermissionButton
                   featureId="FEAT_ROLE_MGMT"
                   permissionType="update"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setIsViewRoleModalOpen(false)
                     openPermissionModal(selectedRole)
                   }}
                 >
-                  <Button>Update Permissions</Button>
+             <Shield size={18} />
                 </DeptPermissionButton>
               </div>
             </div>
@@ -653,59 +721,85 @@ const Roles = () => {
 
         {/* Permissions Modal */}
         <SlideOver
-          open={isPermissionModalOpen}
-          onClose={() => setIsPermissionModalOpen(false)}
-          title={`Update Permissions - ${selectedRole?.roleName}`}
-        >
-          <div className="py-6">
-            <div className="space-y-6">
-              {roleFeatures.map((feature) => (
-                <div key={feature.featureId} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">{feature.featureName}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Feature ID: {feature.featureId}</p>
+  open={isPermissionModalOpen}
+  onClose={() => !isSavingPermissions && setIsPermissionModalOpen(false)}
+  title={`Update Permissions - ${selectedRole?.roleName || ""}`}
+>
+  <div className="py-6">
+    {loadingPermissions ? (
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">Loading permissions...</p>
+      </div>
+    ) : (
+      <div className="space-y-6">
+        {roleFeatures.map((feature) => (
+          <div key={feature.featureId} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">{feature.featureName}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Feature ID: {feature.featureId}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {["canRead", "canWrite", "canUpdate", "canDelete"].map((permission) => (
+                <label key={permission} className="flex items-center space-x-2 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={permissions[feature.featureId]?.[permission] || false}
+                      onChange={() => handlePermissionChange(feature.featureId, permission)}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-5 h-5 border-2 rounded transition-colors duration-200 ${
+                        permissions[feature.featureId]?.[permission]
+                          ? "bg-purple-500 border-purple-500 dark:bg-purple-600 dark:border-purple-600"
+                          : "border-gray-300 dark:border-gray-600 group-hover:border-purple-400 dark:group-hover:border-purple-500"
+                      }`}
+                    >
+                      {permissions[feature.featureId]?.[permission] && (
+                        <svg className="w-full h-full text-white fill-current" viewBox="0 0 20 20">
+                          <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                        </svg>
+                      )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {["canRead", "canWrite", "canUpdate", "canDelete"].map((permission) => (
-                      <label key={permission} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={permissions[feature.featureId]?.[permission] || false}
-                          onChange={() => handlePermissionChange(feature.featureId, permission)}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                          {permission.replace("can", "")}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
+                    {permission.replace("can", "")}
+                  </span>
+                </label>
               ))}
             </div>
-            <div className="mt-6 flex justify-end gap-4">
-              <Button
-                variant="secondary"
-                onClick={() => setIsPermissionModalOpen(false)}
-                disabled={isSavingPermissions}
-              >
-                Cancel
-              </Button>
-              <Button onClick={savePermissions} disabled={isSavingPermissions}>
-                {isSavingPermissions ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                    Saving...
-                  </>
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
-            </div>
           </div>
-        </SlideOver>
+        ))}
+      </div>
+    )}
+    <div className="mt-6 flex justify-end gap-4">
+      <Button
+        variant="secondary"
+        onClick={() => setIsPermissionModalOpen(false)}
+        disabled={isSavingPermissions || loadingPermissions}
+      >
+        Cancel
+      </Button>
+      <Button 
+        onClick={savePermissions} 
+        disabled={isSavingPermissions || loadingPermissions}
+        className="flex items-center gap-2"
+      >
+        {isSavingPermissions ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+            Saving...
+          </>
+        ) : (
+          "Save Changes"
+        )}
+      </Button>
+    </div>
+  </div>
+</SlideOver>
 
         {/* Delete Role Modal */}
         <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Delete Role">
@@ -724,7 +818,7 @@ const Roles = () => {
                 <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)} disabled={isDeletingRole}>
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={confirmDeleteRole} disabled={isDeletingRole}>
+                <Button variant="danger" onClick={confirmDeleteRole} disabled={isDeletingRole}>
                   {isDeletingRole ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
@@ -777,17 +871,18 @@ const Roles = () => {
                   (Lower numbers have higher privileges)
                 </span>
               </label>
-              <select
+              <CustomDropdown
                 id="hierarchyLevel"
                 name="hierarchyLevel"
                 value={newRole.hierarchyLevel}
+                options={[ { label: "Staff (100)", value: "100" }, { label: "Manager (50)", value: "50" }, { label: "Admin (20)", value: "20"}]}
                 onChange={handleNewRoleChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="100">Staff (100)</option>
                 <option value="50">Manager (50)</option>
                 <option value="20">Admin (20)</option>
-              </select>
+              </CustomDropdown>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-4">

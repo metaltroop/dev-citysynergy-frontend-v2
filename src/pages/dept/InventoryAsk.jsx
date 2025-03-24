@@ -9,6 +9,7 @@ import Modal from "../../components/dept/Modal"
 import DeptPermissionGuard  from "../../components/dept/DeptPermissionGuard"
 import apiClient from "../../utils/apiClient"
 import { useToast } from "../../context/ToastContext"
+import CustomDropdown from "../../components/common/CustomDropdown"
 
 // Feature IDs for permissions
 const INVENTORY_FEATURES = {
@@ -170,7 +171,7 @@ const InventoryAsk = () => {
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Category
                 </label>
-                <select
+                <CustomDropdown
                   id="category"
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
@@ -182,7 +183,7 @@ const InventoryAsk = () => {
                       {category}
                     </option>
                   ))}
-                </select>
+                </CustomDropdown>
               </div>
               <div className="relative">
                 <label htmlFor="search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -1,5 +1,3 @@
-// src/pages/dept/CreateUser.jsx
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -11,6 +9,7 @@ import apiClient from "../../utils/apiClient"
 import { useToast } from "../../context/ToastContext"
 import { useLoading } from "../../context/LoadingContext"
 import ProfileImage from "../../components/common/ProfileImage"
+import CustomRoleDropdown from "../../components/common/CustomRoleDropdown" // Import the new component
 
 // Update validation functions to handle responses correctly
 const validateEmail = async (email) => {
@@ -23,15 +22,17 @@ const validateEmail = async (email) => {
   }
 
   try {
-    // Check if email already exists
     const response = await apiClient.post("/users/check-email", { email })
-    console.log("Email check response:", response.data)
     if (!response.data.success) {
-      return { valid: false, message: "Error checking email" }
+      // Directly return the API message
+      return { valid: false, message: response.data.message }
     }
     return { valid: true, message: "" }
   } catch (error) {
-    console.error("Error checking email:", error)
+    // Handle error response format
+    if (error.response?.data?.message) {
+      return { valid: false, message: error.response.data.message }
+    }
     return { valid: false, message: "Error checking email" }
   }
 }
@@ -63,7 +64,8 @@ const validateUsername = async (username) => {
 const CreateUser = () => {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { setLoading } = useLoading()
+  const loadingContext = useLoading()
+  const setLoading = loadingContext?.setLoading || (() => {})
   
   const [formData, setFormData] = useState({
     username: "",
@@ -91,18 +93,26 @@ const CreateUser = () => {
     try {
       setLoading(true)
       const response = await apiClient.get("/roles/department")
+      console.log("Roles API Response:", response.data)
+  
       if (response.data.success) {
-        setRoles(response.data.data.roles)
-      } else {
-        showToast("Failed to fetch roles", "error")
+        // Adjust this line based on actual API response structure
+        const receivedRoles = response.data.data.roles || response.data.roles
+        
+        if (receivedRoles && receivedRoles.length > 0) {
+          setRoles(receivedRoles)
+        } else {
+          showToast("No roles available", "warning")
+        }
       }
     } catch (error) {
       console.error("Error fetching roles:", error)
-      showToast("Error fetching roles", "error")
+      showToast(error.response?.data?.message || "Error fetching roles", "error")
     } finally {
       setLoading(false)
     }
   }
+  
 
   // Handle input change with validation
   const handleChange = async (e) => {
@@ -209,10 +219,10 @@ const CreateUser = () => {
         const errorMessage = response.data.message || "Failed to create user"
         
         // Handle specific error types if needed
-        if (errorMessage.includes("Username already exists")) {
-          setUsernameError("Error checking username")
-        } else if (errorMessage.includes("Email already exists")) {
-          setEmailError("Error checking email")
+        if (errorMessage.toLowerCase().includes("email")) {
+          setEmailError(errorMessage)
+        } else if (errorMessage.toLowerCase().includes("username")) {
+          setUsernameError(errorMessage)
         } else {
           showToast(errorMessage, "error")
         }
@@ -221,7 +231,8 @@ const CreateUser = () => {
       }
     } catch (error) {
       console.error("Error creating user:", error)
-      showToast("Error creating user", "error")
+      const errorMessage = error.response?.data?.message || "Error creating user"
+      showToast(errorMessage, "error")
       setIsCreatingUser(false)
       setIsValidating(false)
     }
@@ -303,28 +314,19 @@ const CreateUser = () => {
               {emailError && <p className="text-sm text-red-500">{emailError}</p>}
             </div>
 
-            {/* Role Field */}
+            {/* Role Field - Replaced with CustomRoleDropdown */}
             <div className="space-y-2">
               <label htmlFor="roleId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Role*
               </label>
-              <select
-                id="roleId"
-                name="roleId"
+              <CustomRoleDropdown
+                options={roles}
                 value={formData.roleId}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border ${
-                  roleError ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white`}
-              >
-                <option value="">Select a role</option>
-                {roles.map((role) => (
-                  <option key={role.roleId} value={role.roleId}>
-                    {role.roleName}
-                  </option>
-                ))}
-              </select>
-              {roleError && <p className="text-sm text-red-500">{roleError}</p>}
+                placeholder="Select a role"
+                error={!!roleError}
+                errorMessage={roleError}
+              />
             </div>
 
             {/* Info Box */}
@@ -372,4 +374,3 @@ const CreateUser = () => {
 }
 
 export default CreateUser
-

@@ -1,5 +1,5 @@
 import { useAuth } from '../../context/AuthContext';
-
+import Button from './Button';
 /**
  * Permission button component specifically for department features
  * This handles the FEAT_* format feature IDs used in department permissions
@@ -63,14 +63,14 @@ const DeptPermissionButton = ({
   const isDisabled = disabled || !hasPermission();
 
   return (
-    <button
+<Button
       onClick={isDisabled ? undefined : onClick}
       disabled={isDisabled}
       className={`${className} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       {...props}
     >
       {children}
-    </button>
+    </Button>
   );
 };
 

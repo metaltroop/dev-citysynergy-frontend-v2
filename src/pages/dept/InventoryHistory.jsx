@@ -1,15 +1,16 @@
 // src/pages/dept/InventoryHistory.jsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowLeft, History, Search, Calendar, ArrowUpDown, RefreshCcw } from "lucide-react"
+import { ArrowLeft, History, Search, Calendar, ArrowUpDown, RefreshCcw, BarChart3, Package, Share2, Truck } from "lucide-react"
 import Button from "../../components/dept/Button"
 import DeptPermissionGuard from "../../components/dept/DeptPermissionGuard"
 import apiClient from "../../utils/apiClient"
 import { useToast } from "../../context/ToastContext"
 import { useLoading } from "../../context/LoadingContext"
-
+import CustomDropdown from "../../components/common/CustomDropdown"
+import  CustomDateRangeSelector from "../../components/common/CustomDateRangeSelector"
 // Feature IDs for permissions
 const INVENTORY_FEATURES = {
   VIEW: "FEAT_INVENTORY",
@@ -38,14 +39,13 @@ const InventoryHistory = () => {
   const [historyItems, setHistoryItems] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [dateRange, setDateRange] = useState({ startDate: null, endDate: null })
   const [sortField, setSortField] = useState("createdAt")
   const [sortDirection, setSortDirection] = useState("desc")
   const [filterAction, setFilterAction] = useState("")
 
   const fetchHistory = async () => {
-    if (!startDate || !endDate) {
+    if (!dateRange.startDate || !dateRange.endDate) {
       showToast("Please select both start and end dates", "warning")
       return
     }
@@ -54,7 +54,10 @@ const InventoryHistory = () => {
     setIsLoading(true)
 
     try {
-      const response = await apiClient.get(`/inventory/history?startDate=${startDate}&endDate=${endDate}`)
+      const formattedStartDate = formatDateForAPI(dateRange.startDate)
+      const formattedEndDate = formatDateForAPI(dateRange.endDate)
+      
+      const response = await apiClient.get(`/inventory/history?startDate=${formattedStartDate}&endDate=${formattedEndDate}`)
 
       if (response.data.success) {
         setHistoryItems(response.data.data)
@@ -68,6 +71,22 @@ const InventoryHistory = () => {
       setLoading(false)
       setIsLoading(false)
     }
+  }
+
+  // Format date for API request (YYYY-MM-DD)
+  const formatDateForAPI = (date) => {
+    if (!date) return ""
+    const d = new Date(date)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
+
+  // Handle date range change
+  const handleDateRangeChange = (e) => {
+    console.log("Date range changed:", e.target.value);
+    setDateRange(e.target.value);
   }
 
   // Handle sort
@@ -132,6 +151,57 @@ const InventoryHistory = () => {
     }
   }
 
+  const [inventoryStats, setInventoryStats] = useState({
+    totalItems: 0,
+    totalCategories: 0,
+    totalAvailable: 0,
+    totalShared: 0,
+    pendingRequests: 0,
+  })
+  
+  // Fetch inventory data and calculate stats
+  const fetchInventoryStats = async () => {
+    try {
+      // Fetch inventory data
+      const inventoryResponse = await apiClient.get("/inventory")
+      
+      // Fetch pending requests
+      const requestsResponse = await apiClient.get("/inventory/requests")
+      
+      if (inventoryResponse.data.success) {
+        const inventoryData = inventoryResponse.data.data
+        
+        // Calculate statistics
+        const totalItems = inventoryData.reduce((sum, item) => sum + item.totalItems, 0)
+        const totalAvailable = inventoryData.reduce((sum, item) => sum + item.availableItems, 0)
+        const totalShared = inventoryData.reduce((sum, item) => sum + item.sharedItems, 0)
+        
+        // Get unique categories
+        const categories = new Set(inventoryData.map(item => item.itemCategory))
+        
+        // Count pending requests
+        const pendingRequests = requestsResponse.data.success 
+          ? requestsResponse.data.data.filter(req => req.requestStatus === "pending").length 
+          : 0
+        
+        setInventoryStats({
+          totalItems,
+          totalCategories: categories.size,
+          totalAvailable,
+          totalShared,
+          pendingRequests,
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching inventory stats:", error)
+    }
+  }
+  
+  // Fetch stats when component mounts
+  useEffect(() => {
+    fetchInventoryStats()
+  }, [])
+
   return (
     <DeptPermissionGuard
       featureId={INVENTORY_FEATURES.VIEW}
@@ -148,6 +218,49 @@ const InventoryHistory = () => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Inventory History</h1>
         </div>
 
+        {/* Stats Section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center">
+            <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-3 mr-4">
+              <Package className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Items</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{inventoryStats.totalItems}</p>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center">
+            <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-3 mr-4">
+              <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Available Items</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{inventoryStats.totalAvailable}</p>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center">
+            <div className="rounded-full bg-indigo-100 dark:bg-indigo-900/30 p-3 mr-4">
+              <Share2 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Shared Items</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{inventoryStats.totalShared}</p>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center">
+            <div className="rounded-full bg-yellow-100 dark:bg-yellow-900/30 p-3 mr-4">
+              <Truck className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Pending Requests</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{inventoryStats.pendingRequests}</p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-6">
           <div className="p-4 border-b dark:border-gray-700">
             <div className="flex items-center mb-4">
@@ -155,37 +268,20 @@ const InventoryHistory = () => {
               <h2 className="text-lg font-semibold">Resource History</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Start Date
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Date Range
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="startDate"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  />
-                  <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  End Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="endDate"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  />
-                  <Calendar className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                </div>
+                <CustomDateRangeSelector
+                  value={dateRange}
+                  onChange={handleDateRangeChange}
+                  name="historyDateRange"
+                  placeholder="Select date range for history"
+                  format="YYYY-MM-DD"
+                  required={true}
+                  error={false}
+                />
               </div>
 
               <div className="flex items-end">
@@ -208,18 +304,21 @@ const InventoryHistory = () => {
                   <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                 </div>
 
-                <select
+                <CustomDropdown
                   value={filterAction}
+                  options={
+                    
+                    uniqueActions.map((action) => ({
+                      label: action.charAt(0).toUpperCase() + action.slice(1),
+                      value: action,
+                    }))
+                  }
                   onChange={(e) => setFilterAction(e.target.value)}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">All Actions</option>
-                  {uniqueActions.map((action) => (
-                    <option key={action} value={action}>
-                      {action.charAt(0).toUpperCase() + action.slice(1)}
-                    </option>
-                  ))}
-                </select>
+                  
+                </CustomDropdown>
 
                 <button
                   onClick={() => handleSort("createdAt")}

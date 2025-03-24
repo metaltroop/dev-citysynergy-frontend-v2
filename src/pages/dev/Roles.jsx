@@ -382,7 +382,7 @@ const Roles = () => {
         </div>
 
         {/* Stats */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4">
+        <div className="mb-6 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 gap-4">
           <Card className="p-4 flex flex-col">
             <div className="flex items-center justify-between">
               <div className="text-gray-600 dark:text-gray-400 text-sm font-medium">Total Roles</div>

@@ -12,9 +12,9 @@ import {
   CheckCircle,
   AlertCircle,
   UsersIcon,
-  ChevronDown,
-  Loader2,
   Plus,
+  LayoutGrid,
+  LayoutList,
 } from "lucide-react"
 import Button from "../../components/dept/Button"
 import Modal from "../../components/dept/Modal"
@@ -25,6 +25,8 @@ import { useAuth } from "../../context/AuthContext"
 import PermissionButton from "../../components/common/PermissionButton"
 import PermissionGuard from "../../components/common/PermissionGuard"
 import { FEATURES, PERMISSIONS } from "../../utils/permissionUtils"
+import { useViewMode } from "../../hooks/useViewMode"
+import CustomDropdown from "../../components/common/CustomDropdown"
 
 const isDeleteProtected = (user) => {
   return user.roles.some(
@@ -69,6 +71,9 @@ export default function UsersPage() {
   // Add sorting state
   const [sortBy, setSortBy] = useState("")
   const [sortOrder, setSortOrder] = useState("asc")
+
+  // Add viewMode state using the imported hook
+  const { viewMode, setViewMode } = useViewMode("table")
 
   const navigate = useNavigate()
 
@@ -148,6 +153,15 @@ export default function UsersPage() {
       setLoading(false)
     }
   }
+
+  // Get user status with optional chaining for safety
+  const getUserStatus = (user) => {
+    if (user.state?.isFirstLogin && user.state?.needsPasswordChange) return "inactive"
+    if (!user.state?.isFirstLogin && user.state?.needsPasswordChange) return "partially-inactive"
+    if (!user.state?.isFirstLogin && !user.state?.needsPasswordChange) return "active"
+    return "inactive"
+  }
+
   // Apply all filters
   const filteredUsers = users
     .filter((user) => {
@@ -206,7 +220,6 @@ export default function UsersPage() {
     })
 
   // Get role display info
-  // Replace the existing getRoleInfo function
   const getRoleInfo = (role) => {
     if (!role) return { name: "User", color: "gray" }
     const color = roleColorMap[role.id] || "gray"
@@ -214,14 +227,6 @@ export default function UsersPage() {
       name: role.name,
       color: color,
     }
-  }
-
-  // Status based on isFirstLogin
-  const getUserStatus = (user) => {
-    if (user.state.isFirstLogin && user.state.needsPasswordChange) return "inactive"
-    if (!user.state.isFirstLogin && user.state.needsPasswordChange) return "partially-inactive"
-    if (!user.state.isFirstLogin && !user.state.needsPasswordChange) return "active"
-    return "inactive"
   }
 
   // Status badge colors
@@ -310,47 +315,49 @@ export default function UsersPage() {
     setDeleteModalOpen(true)
   }
 
+  // Fixed API call in confirmDeleteUser
   const confirmDeleteUser = async () => {
     setIsDeleting(true)
     try {
       const token = localStorage.getItem("token")
+      if (!token) throw new Error("Authentication token not found")
 
-      if (!token) {
-        throw new Error("Authentication token not found")
-      }
-
-      const response = await apiClient.put(`/users/${userToDelete.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const response = await apiClient.put(
+        `/users/${userToDelete.id}`,
+        {}, // Empty data object
+        {
+          // Config as third parameter
+          headers: { Authorization: `Bearer ${token}` },
         },
-      })
+      )
 
       if (response.data.success) {
         setToasts((prev) => [
           ...prev,
           {
             id: Date.now(),
-            message: response.data.message,
+            message: response.data.message || "User deleted successfully",
             type: "success",
           },
         ])
         setDeleteModalOpen(false)
+        fetchUsers() // Refresh the user list
       }
     } catch (err) {
+      setDeleteError(err.response?.data?.message || "Error deleting user")
       setToasts((prev) => [
         ...prev,
         {
           id: Date.now(),
-          message: err.response?.data?.message || "Error resetting password",
+          message: err.response?.data?.message || "Error deleting user",
           type: "error",
         },
       ])
     } finally {
-      setIsResetting(false)
-      setIsResetPasswordModalOpen(false)
-      fetchUsers()
+      setIsDeleting(false)
     }
   }
+
   // Format last login date
   const formatLastLogin = (lastLoginDate) => {
     if (!lastLoginDate) return "Never"
@@ -367,71 +374,6 @@ export default function UsersPage() {
     if (diffDays < 7) return `${diffDays} days ago`
 
     return lastLogin.toLocaleDateString()
-  }
-
-  const CustomSelect = ({ value, onChange, options, placeholder, disabled = false, loading = false }) => {
-    const [isOpen, setIsOpen] = useState(false)
-    const selectRef = useRef(null)
-
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (selectRef.current && !selectRef.current.contains(event.target)) {
-          setIsOpen(false)
-        }
-      }
-
-      document.addEventListener("mousedown", handleClickOutside)
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside)
-      }
-    }, [])
-
-    return (
-      <div className="relative w-full" ref={selectRef}>
-        <div
-          onClick={() => !disabled && setIsOpen(!isOpen)}
-          className={`
-            flex items-center justify-between 
-            w-full px-3 py-2 
-            border rounded-md 
-            ${disabled ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed" : "bg-white dark:bg-gray-700 cursor-pointer"}
-            ${disabled ? "border-gray-300 dark:border-gray-600" : "border-gray-300 dark:border-gray-600"}
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-          `}
-        >
-          <span className={`${value ? "text-gray-900 dark:text-gray-100" : "text-gray-500"}`}>
-            {options.find((opt) => opt.value === value)?.label || placeholder}
-          </span>
-          <div className="flex items-center">
-            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2 text-gray-400" />}
-            <ChevronDown className={`h-4 w-4 ${disabled ? "text-gray-400" : "text-gray-600 dark:text-gray-300"}`} />
-          </div>
-        </div>
-
-        {isOpen && !disabled && (
-          <div
-            className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 
-            border border-gray-300 dark:border-gray-600 rounded-md shadow-lg 
-            max-h-60 overflow-auto"
-          >
-            {options.map((option) => (
-              <div
-                key={option.value}
-                onClick={() => {
-                  onChange(option.value)
-                  setIsOpen(false)
-                }}
-                className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 
-                  cursor-pointer text-gray-900 dark:text-gray-100
-                  transition-colors duration-200"
-              >
-                {option.label}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
   }
 
   return (
@@ -454,10 +396,11 @@ export default function UsersPage() {
           </h1>
           <p className="text-gray-600 dark:text-gray-400">Manage system users and their permissions</p>
         </div>
-        <div className="flex gap-3">
+        <div className="">
           <PermissionButton
             featureId={FEATURES.DEV_USERS}
             permission={PERMISSIONS.WRITE}
+            className="flex items-center gap-2"
             onClick={() => navigate("/dashboard/dev/users/create")}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -466,7 +409,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="mb-6 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col items-center justify-center">
           <div className="text-3xl font-bold text-blue-500 dark:text-blue-400 mb-2">
             {users.filter((u) => u.type === "dev").length}
@@ -497,11 +440,12 @@ export default function UsersPage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-        <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex gap-2 flex-wrap">
+        <div className="p-4 border-b flex flex-col lg:flex-row  gap-4">
+          {/* User type filter buttons - made more mobile-friendly */}
+          <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
             <button
               onClick={() => setUserType("dev")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors flex-1 sm:flex-none ${
                 userType === "dev"
                   ? "bg-blue-500 text-white dark:bg-blue-600"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
@@ -511,7 +455,7 @@ export default function UsersPage() {
             </button>
             <button
               onClick={() => setUserType("dept")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors flex-1 sm:flex-none ${
                 userType === "dept"
                   ? "bg-blue-500 text-white dark:bg-blue-600"
                   : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
@@ -521,138 +465,136 @@ export default function UsersPage() {
             </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 items-center">
-            <SearchBar onSearch={setSearchTerm} placeholder="Search users..." className="w-full sm:w-64" />
-            <button
-              onClick={fetchUsers}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="Refresh users"
-            >
-              <RefreshCcw className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-            </button>
-            <SortDropdown
-              options={[
-                { label: "Username", value: "username" },
-                { label: "Email", value: "email" },
-                { label: "Status", value: "status" },
-                { label: "Last Login", value: "lastLogin" },
-              ]}
-              value={sortBy}
-              order={sortOrder}
-              onChange={(value, order) => {
-                setSortBy(value)
-                setSortOrder(order)
-              }}
-            />
-            {userType === "dept" && (
-              <div className="relative" ref={filterRef}>
+          {/* Search and filter controls - improved for mobile */}
+          <div className="flex flex-col sm:flex-row  gap-3 items-center  lg:flex-row lg:justify-between ">
+            <div className="w-full sm:w-auto">
+              <SearchBar onSearch={setSearchTerm} placeholder="Search..." className="w-full" />
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-start w-full sm:w-auto">
+              <button
+                onClick={fetchUsers}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Refresh users"
+              >
+                <RefreshCcw className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+              </button>
+
+              {/* View mode toggle buttons */}
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                 <button
-                  onClick={() => setFilterOpen(!filterOpen)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  onClick={() => setViewMode("table")}
+                  className={`p-2 ${
+                    viewMode === "table"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  }`}
+                  title="Table view"
                 >
-                  <Filter className="h-4 w-4" />
-                  Filters{" "}
-                  {(departmentFilter !== "all" || roleFilter !== "all") && (
-                    <span className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
-                      {[departmentFilter !== "all" && "Dept", roleFilter !== "all" && "Role"]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </span>
-                  )}
+                  <LayoutList className="h-5 w-5" />
                 </button>
+                <button
+                  onClick={() => setViewMode("card")}
+                  className={`p-2 ${
+                    viewMode === "card"
+                      ? "bg-blue-500 text-white"
+                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  }`}
+                  title="Card view"
+                >
+                  <LayoutGrid className="h-5 w-5" />
+                </button>
+              </div>
 
-                {filterOpen && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 z-10 p-4">
-                    <h3 className="font-medium mb-3">Filter Users</h3>
+              <SortDropdown
+                options={[
+                  { label: "Username", value: "username" },
+                  { label: "Email", value: "email" },
+                  { label: "Status", value: "status" },
+                  { label: "Last Login", value: "lastLogin" },
+                ]}
+                value={sortBy}
+                order={sortOrder}
+                onChange={(value, order) => {
+                  setSortBy(value)
+                  setSortOrder(order)
+                }}
+              />
+              {userType === "dept" && (
+                <div className="relative" ref={filterRef}>
+                  <button
+                    onClick={() => setFilterOpen(!filterOpen)}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filters{" "}
+                    {(departmentFilter !== "all" || roleFilter !== "all") && (
+                      <span className="ml-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
+                        {[departmentFilter !== "all" && "Dept", roleFilter !== "all" && "Role"]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
+                    )}
+                  </button>
 
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Department
-                      </label>
-                      <CustomSelect
-                        value={departmentFilter}
-                        onChange={setDepartmentFilter}
-                        options={[
-                          { value: "all", label: "All Departments" },
-                          ...getUniqueDepartments().map((dept) => ({
-                            value: dept.id,
-                            label: dept.name,
-                          })),
-                        ]}
-                        placeholder="Select Department"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                      <CustomSelect
-                        value={roleFilter}
-                        onChange={setRoleFilter}
-                        options={[
-                          { value: "all", label: "All Roles" },
-                          ...getUniqueRoles().map((role) => ({
-                            value: role.id,
-                            label: role.name,
-                          })),
-                        ]}
-                        placeholder="Select Role"
-                      />
-                    </div>
-
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Unassigned Users
-                        </label>
-                        <div className="relative inline-block w-10 mr-2 align-middle select-none">
-                          <input
-                            type="checkbox"
-                            id="unassignedToggle"
-                            checked={departmentFilter === "unassigned"}
-                            onChange={() => {
-                              if (departmentFilter === "unassigned") {
-                                setDepartmentFilter("all")
-                              } else {
-                                setDepartmentFilter("unassigned")
-                                setRoleFilter("all") // Reset role filter when showing unassigned
-                              }
-                            }}
-                            className="sr-only"
-                          />
-                          <label
-                            htmlFor="unassignedToggle"
-                            className={`block overflow-hidden h-6 rounded-full cursor-pointer transition-colors duration-200 ease-in-out ${
-                              departmentFilter === "unassigned" ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"
-                            }`}
+                  {filterOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg z-10 border dark:border-gray-700">
+                      <div className="p-3 border-b dark:border-gray-700">
+                        <h3 className="font-medium">Filter Options</h3>
+                      </div>
+                      <div className="p-3">
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium mb-1">Department</label>
+                          <CustomDropdown
+                            options={[
+                              { label: "All Departments", value: "all" },
+                              { label: "Unassigned", value: "unassigned" },
+                              ...getUniqueDepartments().map((dept) => ({
+                                label: dept.name,
+                                value: dept.id,
+                              })),
+                            ]}
+                            value={departmentFilter}
+                            onChange={(e) => setDepartmentFilter(e.target.value)}
+                            className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                           >
-                            <span
-                              className={`block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out ${
-                                departmentFilter === "unassigned" ? "translate-x-4" : "translate-x-0"
-                              }`}
-                            />
-                          </label>
+                            
+                          </CustomDropdown>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Role</label>
+                          <CustomDropdown
+                            options={[
+                              { label: "All Roles", value: "all" },
+                              { label: "Unassigned", value: "unassigned" },
+                             ...getUniqueRoles().map((role) => ({
+                                label: role.name,
+                                value: role.id,
+                              })),
+                            ]}
+                            value={roleFilter}
+                            onChange={(e) => setRoleFilter(e.target.value)}
+                            className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                          >
+                            
+                          </CustomDropdown>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Show only users without department assignment
-                      </p>
+                      <div className="p-3 border-t dark:border-gray-700 flex justify-end">
+                        <button
+                          onClick={() => {
+                            setDepartmentFilter("all")
+                            setRoleFilter("all")
+                          }}
+                          className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                        >
+                          Reset
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="flex justify-end mt-4">
-                      <button
-                        onClick={() => {
-                          setDepartmentFilter("all")
-                          setRoleFilter("all")
-                        }}
-                        className="text-sm text-blue-500 hover:text-blue-700"
-                      >
-                        Reset Filters
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -672,171 +614,278 @@ export default function UsersPage() {
             <p className="text-gray-500 dark:text-gray-400">{error}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Email
-                  </th>
-                  {userType === "dept" && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Department
-                    </th>
-                  )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Last Login
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredUsers.map((user) => {
-                  const role = user.roles?.[0] // Get the first role from user's roles array
-                  const roleInfo = getRoleInfo(role)
-                  const status = getUserStatus(user)
-                  return (
-                    <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <ProfileImage username={user.username} profileImage={user.profileImage} size="sm" />
-                          <span className="font-medium">{user.username}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.email}</td>
-                      {userType === "dept" && (
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                          {user.department ? user.department.name : "None"}
-                        </td>
-                      )}
-                      <td className="px-6 py-4">
-                        <div className="inline-flex">
-                          <span
-                            className={`px-2.5 py-1 rounded-md text-xs font-medium border ${getRoleBadgeColor(
-                              roleInfo.color,
-                            )}`}
-                          >
-                            {roleInfo.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          {status === "active" ? (
-                            <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
-                          ) : status === "partially-inactive" ? (
-                            <AlertCircle className="h-4 w-4 text-amber-500 mr-1" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-red-500 mr-1" />
+          <>
+            {/* No users found message - moved outside view mode conditional */}
+            {filteredUsers.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="text-gray-400 dark:text-gray-500 mb-2">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-lg font-medium">No users found</p>
+                </div>
+                <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter criteria</p>
+              </div>
+            ) : (
+              <>
+                {/* Table View */}
+                {viewMode === "table" && (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            User
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Email
+                          </th>
+                          {userType === "dept" && (
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                              Department
+                            </th>
                           )}
-                          <span className={`px-2 py-1 rounded-md text-xs ${getStatusColor(status)}`}>
-                            {status
-                              .split("-")
-                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                              .join(" ")}
-                          </span>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Role
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Last Login
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredUsers.map((user) => {
+                          const role = user.roles?.[0]
+                          const roleInfo = getRoleInfo(role)
+                          const status = getUserStatus(user)
+                          return (
+                            <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <ProfileImage username={user.username} profileImage={user.profileImage} size="sm" />
+                                  <span className="font-medium">{user.username}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{user.email}</td>
+                              {userType === "dept" && (
+                                <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                                  {user.department ? user.department.name : "None"}
+                                </td>
+                              )}
+                              <td className="px-6 py-4">
+                                <div className="inline-flex">
+                                  <span
+                                    className={`px-2.5 py-1 rounded-md text-xs font-medium border ${getRoleBadgeColor(
+                                      roleInfo.color,
+                                    )}`}
+                                  >
+                                    {roleInfo.name}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center">
+                                  {status === "active" ? (
+                                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                                  ) : status === "partially-inactive" ? (
+                                    <AlertCircle className="h-4 w-4 text-amber-500 mr-1" />
+                                  ) : (
+                                    <AlertCircle className="h-4 w-4 text-red-500 mr-1" />
+                                  )}
+                                  <span className={`px-2 py-1 rounded-md text-xs ${getStatusColor(status)}`}>
+                                    {status
+                                      .split("-")
+                                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                                      .join(" ")}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                                {user.state?.lastLogin ? formatLastLogin(user.state.lastLogin) : "Never"}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex justify-end gap-2">
+                                  <PermissionGuard featureId={FEATURES.DEV_USERS} permission={PERMISSIONS.DELETE}>
+                                    <button
+                                      className={`p-1 rounded-full transition-colors ${
+                                        isDeleteDisabled(user)
+                                          ? "text-gray-400 cursor-not-allowed"
+                                          : "text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      }`}
+                                      onClick={() => !isDeleteDisabled(user) && handleDeleteUser(user)}
+                                      disabled={isDeleteDisabled(user)}
+                                      title={isDeleteProtected(user) ? "Cannot delete protected user" : "Delete user"}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </PermissionGuard>
+
+                                  <PermissionGuard featureId={FEATURES.DEV_USERS} permission={PERMISSIONS.UPDATE}>
+                                    <button
+                                      className={`p-1 rounded-full transition-colors ${
+                                        isResetDisabled(user)
+                                          ? "text-gray-400 cursor-not-allowed"
+                                          : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                                      }`}
+                                      onClick={() => !isResetDisabled(user) && handleResetPassword(user)}
+                                      disabled={isResetDisabled(user)}
+                                      title={
+                                        isResetProtected(user)
+                                          ? "Cannot reset DevAdmin password"
+                                          : getUserStatus(user) === "partially-inactive"
+                                            ? "Cannot reset password for partially inactive user"
+                                            : "Reset password"
+                                      }
+                                    >
+                                      <Key className="h-4 w-4" />
+                                    </button>
+                                  </PermissionGuard>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Card View */}
+                {viewMode === "card" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                    {filteredUsers.map((user) => {
+                      const role = user.roles?.[0]
+                      const roleInfo = getRoleInfo(role)
+                      const status = getUserStatus(user)
+                      return (
+                        <div
+                          key={user.id}
+                          className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow"
+                        >
+                          <div className="p-4 border-b dark:border-gray-700">
+                            <div className="flex items-center gap-3">
+                              <ProfileImage username={user.username} profileImage={user.profileImage} size="md" />
+                              <div>
+                                <h3 className="font-medium">{user.username}</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            {userType === "dept" && (
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Department:</span>
+                                <span className="text-sm font-medium">
+                                  {user.department ? user.department.name : "None"}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Role:</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-xs font-medium border ${getRoleBadgeColor(
+                                  roleInfo.color,
+                                )}`}
+                              >
+                                {roleInfo.name}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Status:</span>
+                              <div className="flex items-center">
+                                {status === "active" ? (
+                                  <CheckCircle className="h-3 w-3 text-green-500 mr-1" />
+                                ) : status === "partially-inactive" ? (
+                                  <AlertCircle className="h-3 w-3 text-amber-500 mr-1" />
+                                ) : (
+                                  <AlertCircle className="h-3 w-3 text-red-500 mr-1" />
+                                )}
+                                <span className={`px-2 py-0.5 rounded-md text-xs ${getStatusColor(status)}`}>
+                                  {status
+                                    .split("-")
+                                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                                    .join(" ")}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Last Login:</span>
+                              <span className="text-sm">
+                                {user.state?.lastLogin ? formatLastLogin(user.state.lastLogin) : "Never"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-3 border-t dark:border-gray-700 flex justify-end gap-2 bg-gray-50 dark:bg-gray-800">
+                            <PermissionGuard featureId={FEATURES.DEV_USERS} permission={PERMISSIONS.DELETE}>
+                              <button
+                                className={`p-1.5 rounded transition-colors ${
+                                  isDeleteDisabled(user)
+                                    ? "text-gray-400 cursor-not-allowed"
+                                    : "text-red-500 hover:text-red-700 hover:bg-red-50"
+                                }`}
+                                onClick={() => !isDeleteDisabled(user) && handleDeleteUser(user)}
+                                disabled={isDeleteDisabled(user)}
+                                title={isDeleteProtected(user) ? "Cannot delete protected user" : "Delete user"}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </PermissionGuard>
+
+                            <PermissionGuard featureId={FEATURES.DEV_USERS} permission={PERMISSIONS.UPDATE}>
+                              <button
+                                className={`p-1.5 rounded transition-colors ${
+                                  isResetDisabled(user)
+                                    ? "text-gray-400 cursor-not-allowed"
+                                    : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
+                                }`}
+                                onClick={() => !isResetDisabled(user) && handleResetPassword(user)}
+                                disabled={isResetDisabled(user)}
+                                title={
+                                  isResetProtected(user)
+                                    ? "Cannot reset DevAdmin password"
+                                    : getUserStatus(user) === "partially-inactive"
+                                      ? "Cannot reset password for partially inactive user"
+                                      : "Reset password"
+                                }
+                              >
+                                <Key className="h-4 w-4" />
+                              </button>
+                            </PermissionGuard>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
-                        {user.state && user.state.lastLogin ? formatLastLogin(user.state.lastLogin) : "Never"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end gap-2">
-                          {/* Delete Button - disabled for both DevAdmin and Department Head */}
-                          <PermissionGuard
-                            featureId={FEATURES.DEV_USERS}
-                            permission={PERMISSIONS.DELETE}
-                          >
-                            <button
-                              className={`p-1 rounded-full transition-colors ${
-                                isDeleteDisabled(user)
-                                  ? "text-gray-400 cursor-not-allowed"
-                                  : "text-red-500 hover:text-red-700 hover:bg-red-50"
-                              }`}
-                              onClick={() => !isDeleteDisabled(user) && handleDeleteUser(user)}
-                              disabled={isDeleteDisabled(user)}
-                              title={
-                                isDeleteProtected(user)
-                                  ? "Cannot delete protected user"
-                                  : "Delete user"
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </PermissionGuard>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
 
-                          {/* Reset Password Button - disabled only for DevAdmin */}
-                          <PermissionGuard
-                            featureId={FEATURES.DEV_USERS}
-                            permission={PERMISSIONS.UPDATE}
-                          >
-                            <button
-                              className={`p-1 rounded-full transition-colors ${
-                                isResetDisabled(user)
-                                  ? "text-gray-400 cursor-not-allowed"
-                                  : "text-amber-500 hover:text-amber-700 hover:bg-amber-50"
-                              }`}
-                              onClick={() => !isResetDisabled(user) && handleResetPassword(user)}
-                              disabled={isResetDisabled(user)}
-                              title={
-                                isResetProtected(user)
-                                  ? "Cannot reset DevAdmin password"
-                                  : getUserStatus(user) === "partially-inactive"
-                                    ? "Cannot reset password for partially inactive user"
-                                    : "Reset password"
-                              }
-                            >
-                              <Key className="h-4 w-4" />
-                            </button>
-                          </PermissionGuard>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+            {/* Pagination - only show when there are users */}
+            {filteredUsers.length > 0 && (
+              <div className="p-4 border-t dark:border-gray-700 flex justify-between items-center text-sm text-gray-600 dark:text-gray-400">
+                <div>
+                  Showing {filteredUsers.length} of {users.filter((u) => u.type === userType).length} users
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    disabled
+                    className="px-3 py-1 rounded border bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button className="px-3 py-1 rounded border bg-blue-50 dark:bg-blue-900 text-blue-600 dark:text-blue-400">
+                    1
+                  </button>
+                  <button className="px-3 py-1 rounded border hover:bg-gray-50 dark:hover:bg-gray-700">Next</button>
+                </div>
+              </div>
+            )}
+          </>
         )}
-
-        {!loading && !error && filteredUsers.length === 0 && (
-          <div className="p-8 text-center">
-            <div className="text-gray-400 dark:text-gray-500 mb-2">
-              <RefreshCcw className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p className="text-lg font-medium">No users found</p>
-            </div>
-            <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filter criteria</p>
-          </div>
-        )}
-
-        <div className="p-4 border-t dark:border-gray-700 flex justify-between items-center text-sm text-gray-600 dark:text-gray-400">
-          <div>
-            Showing {filteredUsers.length} of {users.filter((u) => u.type === userType).length} users
-          </div>
-          <div className="flex gap-2">
-            <button
-              disabled
-              className="px-3 py-1 rounded border bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button className="px-3 py-1 rounded border bg-blue-50 dark:bg-blue-900 text-blue-600 dark:text-blue-400">
-              1
-            </button>
-            <button className="px-3 py-1 rounded border hover:bg-gray-50 dark:hover:bg-gray-700">Next</button>
-          </div>
-        </div>
       </div>
 
       {/* Reset Password Modal */}
@@ -870,7 +919,7 @@ export default function UsersPage() {
                 ) : (
                   "Reset Password"
                 )}
-              </Button>{" "}
+              </Button>
             </div>
           </div>
         )}
