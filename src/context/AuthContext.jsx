@@ -15,13 +15,36 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is authenticated on initial load
     const token = localStorage.getItem("token")
-    const userData = JSON.parse(localStorage.getItem("userData"))
-    const permissionsData = JSON.parse(localStorage.getItem("permissions"))
+    const userData = localStorage.getItem("userData")
+    const permissionsData = localStorage.getItem("permissions")
     
     if (token && userData) {
-      setUser(userData)
-      setPermissions(permissionsData)
-      setIsAuthenticated(true)
+      try {
+        // Parse userData with error handling
+        const parsedUserData = JSON.parse(userData)
+        const parsedPermissions = permissionsData ? JSON.parse(permissionsData) : null
+        
+        console.log("Loaded user data:", parsedUserData)
+        console.log("User type:", parsedUserData?.type)
+        
+        // Only update state if it's different to prevent unnecessary re-renders
+        if (!user || user.id !== parsedUserData.id) {
+          setUser(parsedUserData)
+        }
+        
+        if (!permissions || JSON.stringify(permissions) !== JSON.stringify(parsedPermissions)) {
+          setPermissions(parsedPermissions)
+        }
+        
+        if (!isAuthenticated) {
+          setIsAuthenticated(true)
+        }
+      } catch (error) {
+        console.error("Error parsing user data from localStorage:", error)
+        // Handle invalid data by clearing it
+        localStorage.removeItem("userData")
+        localStorage.removeItem("permissions")
+      }
     }
   }, [])
 
@@ -59,17 +82,14 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     // Clear localStorage
     localStorage.removeItem("token")
-    localStorage.removeItem("userData")
-    localStorage.removeItem("permissions")
-    localStorage.removeItem("profileImage")
+
 
     // Clear cookies
     document.cookie.split(";").forEach((cookie) => {
       document.cookie = cookie.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`)
     })
 
-    setUser(null)
-    setPermissions(null)
+    
     setIsAuthenticated(false)
     navigate("/login")
   }

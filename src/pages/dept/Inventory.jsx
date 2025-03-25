@@ -100,22 +100,23 @@ const Inventory = () => {
     "Vehicles",
   ];
 
+
+
   // Fetch inventory data based on filter type
   useEffect(() => {
-    setViewMode(initialViewMode);
     const fetchInventoryData = async () => {
       setIsLoading(true);
       try {
         let endpoint = "/inventory";
-
+  
         if (filterType === "borrowed") {
           endpoint = "/inventory/borrowed";
         } else if (filterType === "lent") {
           endpoint = "/inventory/lent";
         }
-
+  
         const response = await apiClient.get(endpoint);
-
+  
         if (response.data.success) {
           if (filterType === "borrowed") {
             setBorrowedItems(response.data.data);
@@ -150,7 +151,7 @@ const Inventory = () => {
     
     fetchPendingRequests();
     fetchInventoryData();
-  }, [filterType, showToast, initialViewMode]);
+  }, [filterType, showToast]);
 
   // Filter inventory items based on search and filter type
   const getFilteredItems = () => {

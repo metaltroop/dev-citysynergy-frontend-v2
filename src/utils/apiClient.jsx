@@ -54,6 +54,7 @@ const showSessionExpiredModal = () => {
     // Clear auth data and redirect to login
     localStorage.removeItem("token")
     localStorage.removeItem("userData")
+    localStorage.removeItem("permissions")
     sessionStorage.removeItem("token")
     sessionStorage.removeItem("userData")
 
@@ -76,54 +77,64 @@ const showSessionExpiredModal = () => {
   document.body.appendChild(modalOverlay)
 }
 
-const handleAuthError = () => {
-  localStorage.removeItem("token")
-  localStorage.removeItem("userData")
-  sessionStorage.removeItem("token")
-  sessionStorage.removeItem("userData")
-
-  isRefreshing = false
-  processQueue(new Error("Auth error"))
-
-  // Show session expired modal instead of direct redirect
-  showSessionExpiredModal()
-}
-
 const refreshToken = async () => {
   try {
     const response = await axios.post(
       `${import.meta.env.VITE_API_BASE_URL}/api/auth/refresh-token`,
-      {},
-      {
-        withCredentials: true,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      },
-    )
+      {}, 
+      { withCredentials: true } // Ensures the HTTP-only cookie is sent
+    );
 
-    if (response?.data?.success && response.data.data.accessToken) {
-      const newToken = response.data.data.accessToken
-      localStorage.setItem("token", newToken)
-      return newToken
+    if (response?.data?.success && response.data.data.tokens.accessToken) {
+      const newToken = response.data.data.tokens.accessToken;
+      
+      // Store the new token in localStorage
+      localStorage.setItem("token", newToken);
+      
+      // Update the Authorization header
+      apiClient.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
+      
+      return newToken;
     }
-    throw new Error("Refresh token failed")
+
+    throw new Error("Refresh token failed");
   } catch (error) {
-    console.error("Token refresh failed:", error)
-    throw error
+    console.error("Token refresh failed:", error);
+    throw error;
   }
-}
+};
+
+const handleAuthError = async () => {
+  try {
+    const newToken = await refreshToken();
+    if (newToken) {
+      return newToken;
+    }
+  } catch (err) {
+    console.error("Session expired: ", err);
+  }
+
+  // If refresh fails, show session expired modal
+  localStorage.removeItem("token");
+  localStorage.removeItem("userData");
+  localStorage.removeItem("permissions");
+  sessionStorage.removeItem("token");
+  sessionStorage.removeItem("userData");
+
+  showSessionExpiredModal();
+  return null;
+};
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("token");
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return config
+    return config;
   },
-  (error) => Promise.reject(error),
-)
+  (error) => Promise.reject(error)
+);
 
 apiClient.interceptors.response.use(
   (response) => response,
@@ -131,8 +142,8 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config
 
     // Don't retry refresh token requests to avoid infinite loops
-    if (originalRequest.url === "/auth/refresh-token") {
-      handleAuthError()
+    if (originalRequest.url.includes("/auth/refresh-token")) {
+      await handleAuthError()
       return Promise.reject(error)
     }
 
@@ -150,8 +161,9 @@ apiClient.interceptors.response.use(
             return apiClient(originalRequest)
           })
           .catch((err) => {
-            handleAuthError()
-            return Promise.reject(err)
+            return handleAuthError().then(() => {
+              return Promise.reject(err)
+            })
           })
       }
 
@@ -160,13 +172,20 @@ apiClient.interceptors.response.use(
 
       try {
         const newToken = await refreshToken()
-        apiClient.defaults.headers.common["Authorization"] = `Bearer ${newToken}`
-        originalRequest.headers.Authorization = `Bearer ${newToken}`
-        processQueue(null, newToken)
-        return apiClient(originalRequest)
+        
+        if (newToken) {
+          apiClient.defaults.headers.common["Authorization"] = `Bearer ${newToken}`
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
+          processQueue(null, newToken)
+          return apiClient(originalRequest)
+        } else {
+          processQueue(new Error("Could not refresh token"), null)
+          await handleAuthError()
+          return Promise.reject(error)
+        }
       } catch (refreshError) {
         processQueue(refreshError, null)
-        handleAuthError()
+        await handleAuthError()
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
@@ -178,4 +197,3 @@ apiClient.interceptors.response.use(
 )
 
 export default apiClient
-

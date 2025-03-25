@@ -1,290 +1,1123 @@
-import { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
-import { Link as ScrollLink } from "react-scroll";
-import axios from "axios";
-import { useLoading } from "../context/LoadingContext";
+"use client"
 
-import AsyncSelect from "react-select/async";
-import "./home.css";
+import { useState, useEffect, useRef } from "react"
+import Navbar from "../components/Navbar"
+import { Link as ScrollLink } from "react-scroll"
+import { useNavigate } from "react-router-dom"
+import { useLoading } from "../context/LoadingContext"
+import { useToast } from "../context/ToastContext"
+import { useViewMode } from "../hooks/useViewMode"
+import AsyncSelect from "react-select/async"
+
+import Modal from "../components/dept/Modal"
+import HomeModal from "./HomeModal"
+import CustomDropdown from "../components/common/CustomDropdown"
+import apiClient from "../utils/apiClient"
+import { Search, FileText, MapPin, AlertCircle, Plus, X, Upload, CheckCircle, Sun, Moon } from "lucide-react"
+import "./home.css"
 
 export const Home = () => {
-  const [sticky, setSticky] = useState(false);
-  const [pincode, setPincode] = useState("");
-  const [selectedArea, setSelectedArea] = useState(null);
-  const [selectedLocalArea, setSelectedLocalArea] = useState(null);
-  const [tenders, setTenders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const { setIsLoading } = useLoading();
+  const navigate = useNavigate()
+  const { setIsLoading } = useLoading()
+  const { showToast } = useToast()
+  const fileInputRef = useRef(null)
+  const { viewMode, setViewMode } = useViewMode()
 
+  // State for navbar and sections
+  const [sticky, setSticky] = useState(false)
+  const [pincode, setPincode] = useState("")
+  const [selectedArea, setSelectedArea] = useState(null)
+  const [selectedLocalArea, setSelectedLocalArea] = useState(null)
+  const [tenders, setTenders] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [username, setUsername] = useState("User")
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const profileDropdownRef = useRef(null)
+  const [profileImage, setProfileImage] = useState(null)
+
+  // State for issue form modal
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false)
+  const [issueFormData, setIssueFormData] = useState({
+    raisedByEmailID: "",
+    raisedByName: "",
+    IssueCategory: "incomplete_work", // Default value
+    deptId: "",
+    IssueName: "",
+    IssueDescription: "",
+    address: "",
+    pincode: "",
+    locality: "",
+    image: null,
+  })
+
+
+  const [previewImage, setPreviewImage] = useState(null)
+
+  // State for success modal
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [issueResponse, setIssueResponse] = useState(null)
+
+  // Categories for dropdown
+  const issueCategories = [
+    { value: "incomplete_work", label: "Incomplete Work" },
+    { value: "damaged_infrastructure", label: "Damaged Infrastructure" },
+    { value: "safety_hazard", label: "Safety Hazard" },
+    { value: "maintenance_required", label: "Maintenance Required" },
+    { value: "other", label: "Other" },
+  ]
+
+  const loadDepartments = (inputValue) => {
+    return new Promise((resolve) => {
+      if (!inputValue) {
+        resolve([]);
+        return;
+      }
+      
+      apiClient.get(`/issues/search-department?search=${inputValue}`)
+        .then(response => {
+          const options = response.data.map(dept => ({
+            value: dept.deptId,
+            label: dept.deptName,
+          }));
+          resolve(options);
+        })
+        .catch(error => {
+          console.error("Error fetching departments:", error);
+          resolve([]);
+        });
+    });
+  };
+
+  const loadPincodes = (inputValue) => {
+    return new Promise((resolve) => {
+      if (!inputValue) {
+        resolve([]);
+        return;
+      }
+      
+      apiClient.get(`/issues/search-pincode?pincode=${inputValue}`)
+        .then(response => {
+          const options = response.data.map(item => ({
+            value: item.pincode,
+            label: item.pincode,
+          }));
+          resolve(options);
+        })
+        .catch(error => {
+          console.error("Error fetching pincodes:", error);
+          resolve([]);
+        });
+    });
+  };
+
+  const loadLocalities = (inputValue) => {
+    return new Promise((resolve) => {
+      if (!inputValue) {
+        resolve([]);
+        return;
+      }
+      
+      apiClient.get(`/issues/search-locality?locality=${inputValue}`)
+        .then(response => {
+          const options = response.data.map(item => ({
+            value: item.id,
+            label: item.locality,
+          }));
+          resolve(options);
+        })
+        .catch(error => {
+          console.error("Error fetching localities:", error);
+          resolve([]);
+        });
+    });
+  };
+
+  const handleDepartmentChange = (selectedOption) => {
+    setIssueFormData(prev => ({
+      ...prev,
+      deptId: selectedOption ? selectedOption.value : "",
+    }));
+  };
+
+  const handlePincodeChange = (selectedOption) => {
+    setIssueFormData(prev => ({
+      ...prev,
+      pincode: selectedOption ? selectedOption.value : "",
+    }));
+  };
+
+  const handleLocalityChange = (selectedOption) => {
+    setIssueFormData(prev => ({
+      ...prev,
+      locality: selectedOption ? selectedOption.value : "",
+    }));
+  };
+
+
+  // Check for dark mode preference
+  useEffect(() => {
+    const isDark = localStorage.getItem("darkMode") === "true"
+    setIsDarkMode(isDark)
+    if (isDark) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [])
+
+  // Handle scroll for sticky navbar
   useEffect(() => {
     const handleScroll = () => {
-      setSticky(window.scrollY > 0);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+      setSticky(window.scrollY > 0)
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Fetch profile image
+  useEffect(() => {
+    const fetchProfileImage = async () => {
+      try {
+        const response = await apiClient.get("/profile/image/current")
+        if (response.data && response.data.profileImage) {
+          setProfileImage(response.data.profileImage)
+        }
+        if (response.data && response.data.username) {
+          setUsername(response.data.username)
+        }
+      } catch (error) {
+        console.error("Error fetching profile image:", error)
+      }
+    }
+
+    fetchProfileImage()
+  }, [])
+
+
+
+  // Handle click outside profile dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode
+    setIsDarkMode(newDarkMode)
+    localStorage.setItem("darkMode", newDarkMode)
+
+    if (newDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }
+
+  
+
+  const handleLogout = async () => {
+    try {
+      setIsLoading(true)
+      await apiClient.post("/auth/logout")
+      navigate("/login")
+      showToast("Logged out successfully", "success")
+    } catch (error) {
+      console.error("Error logging out:", error)
+      showToast("Failed to log out", "error")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const navigateToDashboard = () => {
+    navigate("/dashboard")
+  }
+
+
+
 
   const fetchAreas = async (inputValue) => {
-    if (!pincode) return [];
-    setError(null);
+    if (!pincode) return []
+    setError(null)
     try {
-      setIsLoading(true);
-      const response = await axios.post(`https://citysynergybackend-jw8z.onrender.com/tender/tenders/filter`, {
+      setIsLoading(true)
+      const response = await apiClient.post(`/tender/tenders/filter`, {
         search_by: "pincode",
         search_term: pincode,
-        filter_columns: ["area_name"]
-      });
+        filter_columns: ["area_name"],
+      })
 
       // Get unique areas
-      const areas = [...new Set(response.data.map(item => item.area_name))];
+      const areas = [...new Set(response.data.map((item) => item.area_name))]
       return areas
-        .filter(area => area?.toLowerCase().includes(inputValue?.toLowerCase()))
-        .map(area => ({
+        .filter((area) => area?.toLowerCase().includes(inputValue?.toLowerCase()))
+        .map((area) => ({
           value: area,
-          label: area
-        }));
+          label: area,
+        }))
     } catch (error) {
-      console.error("Error fetching areas:", error);
-      setError("Failed to fetch areas. Please try again.");
-      return [];
-    } finally{
-      setIsLoading(false);
+      console.error("Error fetching areas:", error)
+      setError("Failed to fetch areas. Please try again.")
+      return []
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   const fetchLocalAreas = async (inputValue) => {
-    if (!pincode || !selectedArea) return [];
-    setError(null);
+    if (!pincode || !selectedArea) return []
+    setError(null)
     try {
-      setIsLoading(true);
-      const response = await axios.post(`https://citysynergybackend-jw8z.onrender.com/tender/tenders/filter`, {
+      setIsLoading(true)
+      const response = await apiClient.post(`/tender/tenders/filter`, {
         search_by: "area_name",
         search_term: selectedArea.value,
-        filter_columns: ["local_area_name"]
-      });
+        filter_columns: ["local_area_name"],
+      })
 
       // Get unique local areas
-      const localAreas = [...new Set(response.data.map(item => item.local_area_name))];
+      const localAreas = [...new Set(response.data.map((item) => item.local_area_name))]
       return localAreas
-        .filter(area => area?.toLowerCase().includes(inputValue?.toLowerCase()))
-        .map(area => ({
+        .filter((area) => area?.toLowerCase().includes(inputValue?.toLowerCase()))
+        .map((area) => ({
           value: area,
-          label: area
-        }));
+          label: area,
+        }))
     } catch (error) {
-      console.error("Error fetching local areas:", error);
-      setError("Failed to fetch local areas. Please try again.");
-      return [];
-    }finally{
-      setIsLoading(false);
+      console.error("Error fetching local areas:", error)
+      setError("Failed to fetch local areas. Please try again.")
+      return []
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleSearch = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!pincode || !selectedArea || !selectedLocalArea) {
-      setError("Please fill in all fields");
-      return;
+      setError("Please fill in all fields")
+      return
     }
 
-    setLoading(true);
-    setError(null);
+    setLoading(true)
+    setError(null)
     try {
-      setIsLoading(true);
-      const response = await axios.post(`https://citysynergybackend-jw8z.onrender.com/tender/tenders/filter`, {
+      setIsLoading(true)
+      const response = await apiClient.post(`/tender/tenders/filter`, {
         search_by: "pincode",
         search_term: pincode,
-        filter_columns: ["*"]
-      });
-      
-      const filteredTenders = response.data.filter(tender => 
-        tender.area_name === selectedArea.value &&
-        tender.local_area_name === selectedLocalArea.value &&
-        tender.Cancel_Accept_Tenders === "Accepted"
-      );
-      
-      setTenders(filteredTenders);
+        filter_columns: ["*"],
+      })
+
+      const filteredTenders = response.data.filter(
+        (tender) =>
+          tender.area_name === selectedArea.value &&
+          tender.local_area_name === selectedLocalArea.value &&
+          tender.Cancel_Accept_Tenders === "Accepted",
+      )
+
+      setTenders(filteredTenders)
     } catch (error) {
-      console.error("Error fetching tenders:", error);
-      setError("Failed to fetch tenders. Please try again.");
-      setTenders([]);
+      console.error("Error fetching tenders:", error)
+      setError("Failed to fetch tenders. Please try again.")
+      setTenders([])
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
-  
-    
-  
+  }
+
+  const handleIssueFormChange = (e) => {
+    const { name, value } = e.target
+    setIssueFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleDropdownChange = (e) => {
+    const { name, value } = e.target
+    setIssueFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setIssueFormData((prev) => ({
+        ...prev,
+        image: file,
+      }))
+
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreviewImage(reader.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setIssueFormData((prev) => ({
+      ...prev,
+      image: null,
+    }))
+    setPreviewImage(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const handleIssueSubmit = async (e) => {
+    e.preventDefault()
+
+    // Validate form
+    if (
+      !issueFormData.raisedByEmailID ||
+      !issueFormData.raisedByName ||
+      !issueFormData.deptId ||
+      !issueFormData.IssueName ||
+      !issueFormData.IssueDescription ||
+      !issueFormData.address ||
+      !issueFormData.pincode ||
+      !issueFormData.locality
+    ) {
+      showToast("Please fill in all required fields", "error")
+      return
+    }
+
+    try {
+      setIsLoading(true)
+
+      // Create FormData object for multipart/form-data
+      const formData = new FormData()
+      Object.keys(issueFormData).forEach((key) => {
+        if (key === "image" && issueFormData[key]) {
+          formData.append(key, issueFormData[key])
+        } else if (key !== "image") {
+          formData.append(key, issueFormData[key])
+        }
+      })
+
+      const response = await apiClient.post("/issues/raiseIssue", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
+
+      setIssueResponse(response.data)
+      setIsIssueModalOpen(false)
+      setIsSuccessModalOpen(true)
+
+      // Reset form
+      setIssueFormData({
+        raisedByEmailID: "",
+        raisedByName: "",
+        IssueCategory: "incomplete_work",
+        deptId: "",
+        IssueName: "",
+        IssueDescription: "",
+        address: "",
+        pincode: "",
+        locality: "",
+        image: null,
+      })
+      setPreviewImage(null)
+    } catch (error) {
+      console.error("Error submitting issue:", error)
+      showToast("Failed to submit issue. Please try again.", "error")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const renderIssueStatusSteps = (status) => {
+    const steps = [
+      { key: "raised", label: "Raised" },
+      { key: "in_review", label: "In Review" },
+      { key: "accepted", label: "Accepted" },
+      { key: "pending", label: "Pending" },
+      { key: "working", label: "Working" },
+      { key: "resolved", label: "Resolved" },
+    ]
+
+    // Find the last completed step
+    let lastCompletedIndex = -1
+    for (let i = 0; i < steps.length; i++) {
+      if (status[steps[i].key]) {
+        lastCompletedIndex = i
+      } else {
+        break
+      }
+    }
+
+    return (
+      <>
+        {/* Progress line that connects through circles */}
+        <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-200 -translate-y-1/2 z-0"></div>
+        <div
+          className="absolute top-1/2 left-0 h-0.5 bg-green-500 -translate-y-1/2 transition-all duration-500 z-0"
+          style={{ width: `${lastCompletedIndex >= 0 ? (lastCompletedIndex / (steps.length - 1)) * 100 : 0}%` }}
+        ></div>
+
+        {steps.map((step, index) => (
+          <div key={step.key} className="flex flex-col items-center z-10">
+            <div
+              className={`w-3 h-3 rounded-full ${
+                index <= lastCompletedIndex
+                  ? "bg-green-500"
+                  : index === lastCompletedIndex + 1
+                    ? "bg-blue-500"
+                    : "bg-gray-300"
+              } z-10 transition-colors duration-300`}
+            ></div>
+            <span
+              className={`text-xs mt-1 ${
+                index <= lastCompletedIndex
+                  ? "text-green-600 font-medium"
+                  : index === lastCompletedIndex + 1
+                    ? "text-blue-600 font-medium"
+                    : "text-gray-500"
+              }`}
+            >
+              {step.label}
+            </span>
+          </div>
+        ))}
+      </>
+    )
+  }
+
+
 
   return (
-    <div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 ">
+
       <Navbar sticky={sticky} />
-      {/* Hero Section */}
-      <section
-        id="home"
-        className="bgimg min-h-screen flex items-center justify-center relative"
+
+      {/* Profile Image in top right */}
+
+      {/* Dark Mode Toggle */}
+      <button
+        onClick={toggleDarkMode}
+        className="fixed bottom-6 left-6 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg z-50 hover:scale-110 transition-transform"
+        aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
       >
-        <div className="overlay"></div>
-        <div className="text-center z-10 px-4">
-          <h1 className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl 2xl:text-[150px] font-semibold text-white transition-all">
+        {isDarkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-blue-700" />}
+      </button>
+
+      {/* Hero Section */}
+      <section id="home" className="bgimg min-h-screen flex items-center justify-center relative">
+        <div className="overlay bg-black bg-opacity-50"></div>
+        <div className="text-center z-10 px-4 max-w-5xl mx-auto">
+          <h1 className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white transition-all mb-6">
             CITY SYNERGY
           </h1>
-          <p className="text-base sm:text-lg text-white mt-2">
-            The Inter Departmental Co-Operation Software.
+          <p className="text-xl sm:text-2xl text-white mt-2 mb-8 max-w-3xl mx-auto">
+            Connecting departments, empowering citizens, and building smarter cities together.
           </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+            <ScrollLink
+              to="knowtenders"
+              smooth={true}
+              duration={500}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg shadow-lg cursor-pointer transition-all flex items-center justify-center"
+            >
+              <Search className="w-5 h-5 mr-2" />
+              Find Local Tenders
+            </ScrollLink>
+            <button
+              onClick={() => setIsIssueModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg shadow-lg cursor-pointer transition-all flex items-center justify-center"
+            >
+              <AlertCircle className="w-5 h-5 mr-2" />
+              Report an Issue
+            </button>
+          </div>
         </div>
-        <ScrollLink
-          to="knowtenders"
-          smooth={true}
-          duration={500}
-          className="absolute bottom-4 sm:bottom-8 right-4 sm:right-8 bg-blue-500 z-10 text-white font-bold py-2 px-4 sm:py-3 sm:px-5 rounded-full shadow-lg cursor-pointer hover:bg-blue-700 text-sm sm:text-base"
-        >
-          Know Tenders in Your Area
-        </ScrollLink>
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-12 sm:py-16 md:py-20 px-4 md:px-8 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-          <div className="space-y-6 sm:space-y-8">
-            <span className="text-blue-500 font-medium tracking-wide">
-              About Us
-            </span>
+      <section id="about" className="py-20 px-4 md:px-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-6">
+            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              About CitySynergy
+            </div>
 
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
-              What is CitySynergy?
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+              Transforming Urban Governance
             </h2>
 
-            <p className="text-gray-600 leading-relaxed">
-              Every great city thrives on collaboration, and we&apos;re here to make
-              it seamless. Our platform is the bridge between innovation and
-              coordination, connecting departments to transform urban governance
-              into a powerhouse of efficiency and progress.
+            <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed">
+              CitySynergy is an innovative platform designed to bridge the gap between government departments and
+              citizens. By facilitating seamless inter-departmental cooperation, we're creating more efficient,
+              transparent, and responsive urban governance systems.
             </p>
 
-            <div className="text-gray-900">
-              <span className="font-medium">
-                Basically Inter-Departmental Co-operation software
-              </span>
-              <a href="" className="text-blue-500 hover:text-blue-200 transition-colors">.</a>
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
+                  <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Streamlined Processes</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Automate workflows between departments for faster resolution
+                </p>
+              </div>
 
-            <button className="group relative px-6 sm:px-8 py-2 sm:py-3 border-2 border-blue-500 text-gray-900 font-medium hover:bg-blue-500 hover:text-white transition-all duration-300">
-              Read More
-              <span className="absolute -bottom-2 -right-2 w-full h-full border-2 border-gray-200 -z-10 group-hover:translate-x-1 group-hover:translate-y-1 transition-transform duration-300"></span>
-            </button>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
+                  <MapPin className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Citizen Engagement</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Empower citizens to report issues and track resolution progress
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="relative mt-8 lg:mt-0">
-            <div className="relative">
-              <img
-                src="./banner.png"
-                alt="Modern Interior"
-                className="w-full h-full object-cover rounded-sm"
-              />
+          <div className="relative">
+            <div className="relative rounded-xl overflow-hidden shadow-xl">
+              <img src="./banner.png" alt="City Synergy Platform" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
             </div>
+            <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-blue-600 rounded-lg -z-10"></div>
+            <div className="absolute -top-6 -right-6 w-32 h-32 bg-green-600 rounded-lg -z-10"></div>
           </div>
         </div>
       </section>
 
       {/* Search Section */}
-      <section id="knowtenders" className="bg-gray-100 py-12 sm:py-16 md:py-20">
+      <section id="knowtenders" className="py-20 bg-white dark:bg-gray-800">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-6 sm:mb-8">
-            Know Tenders in Your Area
-          </h2>
-          
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 items-center justify-center mb-8">
-            <input
-              type="text"
-              value={pincode}
-              onChange={(e) => setPincode(e.target.value)}
-              placeholder="Enter Pincode"
-              className="w-full sm:w-48 border border-gray-300 rounded-md p-2"
-            />
-            <div className="w-full sm:w-64">
-              <AsyncSelect
-                cacheOptions
-                loadOptions={fetchAreas}
-                onChange={setSelectedArea}
-                placeholder="Select Area"
-                isDisabled={!pincode}
-                noOptionsMessage={() => "No areas found"}
-              />
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 mb-4">
+              Local Development
             </div>
-            <div className="w-full sm:w-64">
-              <AsyncSelect
-                cacheOptions
-                loadOptions={fetchLocalAreas}
-                onChange={setSelectedLocalArea}
-                placeholder="Select Local Area"
-                isDisabled={!pincode || !selectedArea}
-                noOptionsMessage={() => "No local areas found"}
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full sm:w-auto bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md disabled:bg-gray-400"
-              disabled={loading || !pincode || !selectedArea || !selectedLocalArea}
-            >
-              {loading ? "Searching..." : "Search"}
-            </button>
-          </form>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Discover Tenders in Your Area</h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+              Stay informed about development projects happening in your neighborhood. Search by pincode and area to
+              find active tenders.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-6 shadow-md mb-10">
+            <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label htmlFor="pincode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Pincode
+                </label>
+                <input
+                  id="pincode"
+                  type="text"
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="Enter Pincode"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="area" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Area
+                </label>
+                <AsyncSelect
+                  id="area"
+                  cacheOptions
+                  loadOptions={fetchAreas}
+                  onChange={setSelectedArea}
+                  placeholder="Select Area"
+                  isDisabled={!pincode}
+                  noOptionsMessage={() => "No areas found"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="localArea" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Local Area
+                </label>
+                <AsyncSelect
+                  id="localArea"
+                  cacheOptions
+                  loadOptions={fetchLocalAreas}
+                  onChange={setSelectedLocalArea}
+                  placeholder="Select Local Area"
+                  isDisabled={!pincode || !selectedArea}
+                  noOptionsMessage={() => "No local areas found"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                />
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                  disabled={loading || !pincode || !selectedArea || !selectedLocalArea}
+                >
+                  <Search className="w-5 h-5 mr-2" />
+                  {loading ? "Searching..." : "Search Tenders"}
+                </button>
+              </div>
+            </form>
+          </div>
 
           {error && (
-            <div className="text-red-500 text-center mb-4">
-              {error}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{error}</div>
           )}
 
-          {tenders.length > 0 && (
-            <div className="overflow-x-auto shadow-lg rounded-lg">
-              <table className="min-w-full bg-white">
-                <thead className="bg-[#495057] text-white">
+          {tenders.length > 0 ? (
+            <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-100 dark:bg-gray-700">
                   <tr>
-                    <th className="p-2 sm:p-3 text-left text-sm sm:text-base">Tender ID</th>
-                    <th className="p-2 sm:p-3 text-left text-sm sm:text-base">Department</th>
-                    <th className="hidden md:table-cell p-2 sm:p-3 text-left text-sm sm:text-base">Classification</th>
-                    <th className="hidden sm:table-cell p-2 sm:p-3 text-left text-sm sm:text-base">Sanction Date</th>
-                    <th className="hidden lg:table-cell p-2 sm:p-3 text-left text-sm sm:text-base">Completion Date</th>
-                    <th className="p-2 sm:p-3 text-right text-sm sm:text-base">Amount</th>
-                    <th className="hidden xl:table-cell p-2 sm:p-3 text-center text-sm sm:text-base">Duration</th>
-                    <th className="hidden sm:table-cell p-2 sm:p-3 text-left text-sm sm:text-base">Status</th>
-                    <th className="hidden md:table-cell p-2 sm:p-3 text-left text-sm sm:text-base">Agency</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Tender ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Department
+                    </th>
+                    <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Classification
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Sanction Date
+                    </th>
+                    <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Completion Date
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="hidden xl:table-cell px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Duration
+                    </th>
+                    <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Agency
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {tenders.map((tender) => (
-                    <tr key={tender.Tender_ID} className="hover:bg-gray-50">
-                      <td className="p-2 sm:p-3 text-sm">{tender.Tender_ID}</td>
-                      <td className="p-2 sm:p-3 text-sm">{tender.Tender_By_Department}</td>
-                      <td className="hidden md:table-cell p-2 sm:p-3 text-sm">{tender.Tender_By_Classification}</td>
-                      <td className="hidden sm:table-cell p-2 sm:p-3 text-sm">{new Date(tender.Sanction_Date).toLocaleDateString()}</td>
-                      <td className="hidden lg:table-cell p-2 sm:p-3 text-sm">{new Date(tender.Completion_Date).toLocaleDateString()}</td>
-                      <td className="p-2 sm:p-3 text-sm text-right">
-                        {new Intl.NumberFormat('en-IN', {
-                          style: 'currency',
-                          currency: 'INR'
+                    <tr key={tender.Tender_ID} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {tender.Tender_ID}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                        {tender.Tender_By_Department}
+                      </td>
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                        {tender.Tender_By_Classification}
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                        {new Date(tender.Sanction_Date).toLocaleDateString()}
+                      </td>
+                      <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                        {new Date(tender.Completion_Date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 text-right">
+                        {new Intl.NumberFormat("en-IN", {
+                          style: "currency",
+                          currency: "INR",
                         }).format(tender.Sanction_Amount)}
                       </td>
-                      <td className="hidden xl:table-cell p-2 sm:p-3 text-sm text-center">{tender.Total_Duration_Days}</td>
-                      <td className="hidden sm:table-cell p-2 sm:p-3 text-sm">{tender.Tender_Status}</td>
-                      <td className="hidden md:table-cell p-2 sm:p-3 text-sm">{tender.Tender_Acquired_By_Agency}</td>
+                      <td className="hidden xl:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 text-center">
+                        {tender.Total_Duration_Days} days
+                      </td>
+                      <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            tender.Tender_Status === "Completed"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : tender.Tender_Status === "In Progress"
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                          }`}
+                        >
+                          {tender.Tender_Status}
+                        </span>
+                      </td>
+                      <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                        {tender.Tender_Acquired_By_Agency}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          )}
-          
-          {tenders.length === 0 && !loading && !error && (
-            <p className="text-center text-gray-500 mt-4">
-              No accepted tenders found for the selected criteria.
-            </p>
+          ) : (
+            !loading &&
+            !error && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center shadow-md">
+                <div className="flex flex-col items-center justify-center">
+                  <Search className="w-16 h-16 text-gray-400 mb-4" />
+                  <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">No tenders found</h3>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No accepted tenders found for the selected criteria. Try different search parameters.
+                  </p>
+                </div>
+              </div>
+            )
           )}
         </div>
       </section>
+
+      {/* Floating Action Button for Issue Reporting */}
+      <button
+        onClick={() => setIsIssueModalOpen(true)}
+        className="fixed bottom-6 right-6 bg-green-600 hover:bg-green-700 text-white p-4 rounded-full shadow-lg z-50 flex items-center justify-center transition-all hover:scale-110"
+        aria-label="Report an Issue"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+     
+ {/* Issue Reporting Modal */}
+<HomeModal
+  isOpen={isIssueModalOpen}
+  onClose={() => setIsIssueModalOpen(false)}
+  title="Report an Issue"
+  maxWidth="max-w-3xl"
+>
+  <form onSubmit={handleIssueSubmit} className="space-y-6 overflow-y-auto max-h-[70vh] md:max-h-[80vh] p-1">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      <div>
+        <label htmlFor="raisedByName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Your Name
+        </label>
+        <input
+          type="text"
+          id="raisedByName"
+          name="raisedByName"
+          value={issueFormData.raisedByName}
+          onChange={handleIssueFormChange}
+          placeholder="Enter your full name"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          required
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="raisedByEmailID"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Email Address
+        </label>
+        <input
+          type="email"
+          id="raisedByEmailID"
+          name="raisedByEmailID"
+          value={issueFormData.raisedByEmailID}
+          onChange={handleIssueFormChange}
+          placeholder="Enter your email address"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          required
+        />
+      </div>
     </div>
-  );
-};
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      <div>
+        <label htmlFor="IssueName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Issue Title
+        </label>
+        <input
+          type="text"
+          id="IssueName"
+          name="IssueName"
+          value={issueFormData.IssueName}
+          onChange={handleIssueFormChange}
+          placeholder="Enter a brief title for the issue"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          required
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="IssueCategory"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+        >
+          Issue Category
+        </label>
+        <CustomDropdown
+          id="IssueCategory"
+          name="IssueCategory"
+          options={issueCategories}
+          value={issueFormData.IssueCategory}
+          onChange={handleDropdownChange}
+          placeholder="Select issue category"
+          required
+        />
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department</label>
+        <AsyncSelect
+          cacheOptions
+          defaultOptions
+          loadOptions={loadDepartments}
+          onChange={handleDepartmentChange}
+          placeholder="Search and select department"
+          className="react-select-container"
+          classNamePrefix="react-select"
+          noOptionsMessage={() => "Type to search departments"}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pincode</label>
+        <AsyncSelect
+          cacheOptions
+          defaultOptions
+          loadOptions={loadPincodes}
+          onChange={handlePincodeChange}
+          placeholder="Search and select pincode"
+          className="react-select-container"
+          classNamePrefix="react-select"
+          noOptionsMessage={() => "Type to search pincodes"}
+        />
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Locality</label>
+        <AsyncSelect
+          cacheOptions
+          defaultOptions
+          loadOptions={loadLocalities}
+          onChange={handleLocalityChange}
+          placeholder="Search and select locality"
+          className="react-select-container"
+          classNamePrefix="react-select"
+          noOptionsMessage={() => "Type to search localities"}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="address" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Detailed Address
+        </label>
+        <input
+          type="text"
+          id="address"
+          name="address"
+          value={issueFormData.address}
+          onChange={handleIssueFormChange}
+          placeholder="Enter detailed address of the issue location"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+          required
+        />
+      </div>
+    </div>
+
+    <div>
+      <label
+        htmlFor="IssueDescription"
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+      >
+        Issue Description
+      </label>
+      <textarea
+        id="IssueDescription"
+        name="IssueDescription"
+        value={issueFormData.IssueDescription}
+        onChange={handleIssueFormChange}
+        rows={3}
+        placeholder="Describe the issue in detail"
+        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        required
+      ></textarea>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Image</label>
+      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+        {previewImage ? (
+          <div className="relative">
+            <img
+              src={previewImage || "/placeholder.svg"}
+              alt="Issue preview"
+              className="max-h-36 mx-auto rounded-lg"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="cursor-pointer flex flex-col items-center justify-center py-2"
+          >
+            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Click to upload or drag and drop</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PNG, JPG, JPEG up to 5MB</p>
+          </div>
+        )}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImageChange}
+          accept="image/png, image/jpeg, image/jpg"
+          className="hidden"
+        />
+      </div>
+    </div>
+
+    <div className="flex justify-end space-x-3 pt-2">
+      <button
+        type="button"
+        onClick={() => setIsIssueModalOpen(false)}
+        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        Cancel
+      </button>
+      <button type="submit" className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+        Submit Issue
+      </button>
+    </div>
+  </form>
+</HomeModal>
+{/* Success Modal */}
+<Modal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        title="Issue Submitted Successfully"
+        maxWidth="max-w-lg"
+      >
+        <div className="text-center overflow-y-auto max-h-[70vh] md:max-h-[80vh] p-1">
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <CheckCircle className="w-7 h-7 text-green-600" />
+          </div>
+
+          <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-white">
+            Thank you for reporting the issue!
+          </h3>
+
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Your issue has been successfully submitted and will be reviewed by the relevant department.
+          </p>
+
+          {issueResponse && (
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 md:p-4 mb-4 text-left">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 gap-1">
+                <h4 className="text-base font-medium text-gray-900 dark:text-white">Issue Details</h4>
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-xs font-medium">
+                  ID: {issueResponse.data.IssueId}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Issue Name</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{issueResponse.data.IssueName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Department</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{issueResponse.data.deptId}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Category</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {issueResponse.data.IssueCategory.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Submitted On</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {new Date(issueResponse.data.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Current Status</p>
+                <div className="w-full mt-2">
+                  <div className="relative">
+                    <div className="relative flex justify-between">
+                      {renderIssueStatusSteps(issueResponse.data.issueStatus)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Please save your Issue ID for future reference:
+                </p>
+                <div className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-1.5">
+                  <code className="text-blue-600 dark:text-blue-400 font-mono text-xs overflow-x-auto">
+                    {issueResponse.data.IssueId}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(issueResponse.data.IssueId);
+                      showToast("Issue ID copied to clipboard", "success");
+                    }}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ml-2 flex-shrink-0"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setIsSuccessModalOpen(false)}
+              className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+
+    </div>
+  )
+}
+

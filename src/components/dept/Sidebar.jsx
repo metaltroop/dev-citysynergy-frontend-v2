@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
+import PropTypes from "prop-types"
 import {
   LayoutDashboard,
   FileText,
@@ -19,6 +20,7 @@ import {
   Sun,
   Moon,
   RefreshCcw,
+  Home,
 } from "lucide-react"
 import apiClient from "../../utils/apiClient"
 import ProfileImageModal from "../common/ProfileImageModal"
@@ -40,8 +42,7 @@ const quickLinks = [{ label: "Logout", icon: LogOut }]
 
 const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, toggleDarkMode }) => {
   const location = useLocation()
-  const [hoverIndex, setHoverIndex] = useState(null)
-  const { logout, user, permissions, hasPermission } = useAuth()
+  const { logout, user,  hasPermission } = useAuth()
 
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [profileImage, setProfileImage] = useState(null)
@@ -280,6 +281,17 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
               )}
             </button>
 
+            <Link
+              to="/home"
+              onClick={handleLinkClick}
+              className="flex items-center px-3 py-2.5 rounded-lg transition-all text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+            >
+              <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
+                <Home className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </div>
+              {(!isCollapsed || isMobile) && <span className="font-medium">Home</span>}
+            </Link>
+
             {quickLinks.map((item) => (
               <a
                 key={item.label}
@@ -366,3 +378,12 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
 
 export default Sidebar
 
+Sidebar.propTypes = {
+  isMobile: PropTypes.bool.isRequired,
+  isCollapsed: PropTypes.bool.isRequired,
+  isOpen: PropTypes.bool.isRequired,
+  onToggleCollapse: PropTypes.func.isRequired,
+  darkMode: PropTypes.bool.isRequired,
+  toggleDarkMode: PropTypes.func.isRequired,
+  setHoverIndex: PropTypes.func,
+}

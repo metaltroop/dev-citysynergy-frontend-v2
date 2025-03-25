@@ -6,6 +6,7 @@ import { Home } from "./pages/Home"
 import { Login } from "./pages/Login"
 import { OTPVerification } from "./pages/OTPVerification"
 import MainLayout from "./layouts/MainLayout"
+import { useState, useEffect } from "react"
 
 // Import all dashboard pages
 import DevDashboard from "./pages/dev/Dashboard"
@@ -43,7 +44,41 @@ import ErrorBoundary from "./components/ErrorBoundary"
 
 const DashboardRedirect = () => {
   const { user } = useAuth();
-  return <Navigate to={`/dashboard/${user?.type || 'dev'}`} replace />;
+  const [isLoading, setIsLoading] = useState(true);
+  
+  console.log("DashboardRedirect - User:", user);
+  console.log("DashboardRedirect - User type:", user?.type);
+  
+  useEffect(() => {
+    // If user is null, try to load from localStorage directly
+    if (!user) {
+      const userData = localStorage.getItem("userData");
+      if (userData) {
+        try {
+          const parsedUser = JSON.parse(userData);
+          console.log("DashboardRedirect - Loaded user from localStorage:", parsedUser);
+          if (parsedUser && parsedUser.type) {
+            // Navigate directly instead of waiting for context
+            window.location.href = `/dashboard/${parsedUser.type}`;
+            return;
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      }
+    }
+    setIsLoading(false);
+  }, [user]);
+  
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  
+  // Default to 'dev' only if user exists but type is missing
+  const dashboardType = user ? (user.type || 'dev') : 'dev';
+  console.log("Redirecting to:", `/dashboard/${dashboardType}`);
+  
+  return <Navigate to={`/dashboard/${dashboardType}`} replace />;
 };
 export default function App() {
   return (

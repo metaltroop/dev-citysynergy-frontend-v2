@@ -16,6 +16,7 @@ import {
   LogOut,
   X,
   Sun,
+  Home,
   Moon,
 } from "lucide-react"
 import ProfileImageModal from "../common/ProfileImageModal"
@@ -250,6 +251,17 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
                 <span className="font-medium">{darkMode ? "Light Mode" : "Dark Mode"}</span>
               )}
             </button>
+
+                        <Link
+                          to="/home"
+                          onClick={handleLinkClick}
+                          className="flex items-center px-3 py-2.5 rounded-lg transition-all text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg mr-3">
+                            <Home className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                          </div>
+                          {(!isCollapsed || isMobile) && <span className="font-medium">Home</span>}
+                        </Link>
 
             {quickLinks.map((item) => (
               <a

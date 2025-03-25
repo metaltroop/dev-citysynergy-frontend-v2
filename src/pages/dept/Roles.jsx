@@ -46,9 +46,8 @@ const Roles = () => {
 
   // Fetch roles on component mount
   useEffect(() => {
-    setViewMode(initialViewMode)
     fetchRoles()
-  }, [initialViewMode])
+  }, [])
 
   // Fetch roles from API
   const fetchRoles = async () => {
