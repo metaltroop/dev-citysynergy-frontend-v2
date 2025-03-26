@@ -82,13 +82,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     // Clear localStorage
     localStorage.removeItem("token")
-
-
-    // Clear cookies
-    document.cookie.split(";").forEach((cookie) => {
-      document.cookie = cookie.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date(0).toUTCString()};path=/`)
-    })
-
+    //remove cookie
+  
     
     setIsAuthenticated(false)
     navigate("/login")
