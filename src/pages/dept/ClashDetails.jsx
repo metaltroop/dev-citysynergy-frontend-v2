@@ -203,10 +203,10 @@ const ClashDetails = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-900">
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col items-center">
-          <div className="h-16 w-16 border-4 border-t-blue-500 border-blue-200/30 rounded-full animate-spin"></div>
-          <p className="mt-4 text-blue-400 font-medium">Loading clash details...</p>
+          <div className="h-16 w-16 border-4 border-t-blue-500 border-blue-200/30 rounded-full animate-spin dark:border-t-blue-400 dark:border-blue-700/30"></div>
+          <p className="mt-4 text-blue-600 font-medium dark:text-blue-400">Loading clash details...</p>
         </div>
       </div>
     )
@@ -214,39 +214,39 @@ const ClashDetails = () => {
 
   if (error) {
     return (
-      <div className="p-6 text-center">
-        <div className="text-red-500 mb-4">{error}</div>
+      <div className="p-6 text-center bg-white dark:bg-gray-800">
+        <div className="text-red-500 dark:text-red-400 mb-4">{error}</div>
         <Button onClick={() => navigate("/dashboard/dept/clashes")}>Back to Clashes</Button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white dark:bg-gray-800 dark:text-gray-200">
+    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-200">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4 dark:bg-gray-700 dark:border-gray-600">
+      <div className="bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700 p-4 shadow-sm dark:shadow-none">
         <div className="container mx-auto flex items-center">
           <button
             onClick={() => navigate("/dashboard/dept/clashes")}
-            className="p-2 mr-3 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-gray-100"
+            className="p-2 mr-3 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
           >
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-bold flex items-center">
-            Clash <span className="text-blue-400 ml-1 dark:text-blue-300">{id}</span>
+            Clash <span className="text-blue-600 ml-1 dark:text-blue-400">{id}</span>
             <span
               className={`ml-4 px-3 py-1 text-xs rounded-full ${
                 clashDetails?.is_resolved
-                  ? "bg-green-900/30 text-green-400 border border-green-700/50 dark:bg-green-800/30 dark:text-green-300 dark:border-green-600"
-                  : "bg-yellow-900/30 text-yellow-400 border border-yellow-700/50 dark:bg-yellow-800/30 dark:text-yellow-300 dark:border-yellow-600"
+                  ? "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700/50"
+                  : "bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700/50"
               }`}
             >
               {clashDetails?.is_resolved ? "Resolved" : "Unresolved"}
             </span>
             {socketConnected ? (
-              <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-400 dark:bg-green-300"></span>
+              <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-500 dark:bg-green-400"></span>
             ) : (
-              <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-400 dark:bg-red-300"></span>
+              <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-500 dark:bg-red-400"></span>
             )}
           </h1>
         </div>
@@ -256,22 +256,22 @@ const ClashDetails = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Chat Section */}
           <div className="lg:col-span-2">
-            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden h-[calc(100vh-180px)] flex flex-col dark:bg-gray-700 dark:border-gray-600">
-              <div className="p-4 border-b border-gray-700 flex items-center justify-between dark:border-gray-600">
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden h-[calc(100vh-180px)] flex flex-col shadow-sm dark:bg-gray-800 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between dark:border-gray-700">
                 <div className="flex items-center">
-                  <MessageSquare className="h-5 w-5 text-blue-400 mr-2 dark:text-blue-300" />
+                  <MessageSquare className="h-5 w-5 text-blue-600 mr-2 dark:text-blue-400" />
                   <h2 className="text-lg font-semibold dark:text-gray-100">Department Chat</h2>
                 </div>
                 <div className="flex items-center">
-                  <span className="text-sm text-gray-400 mr-2 dark:text-gray-300">Connection:</span>
+                  <span className="text-sm text-gray-500 mr-2 dark:text-gray-400">Connection:</span>
                   {socketConnected ? (
-                    <span className="text-green-400 text-sm flex items-center dark:text-green-300">
-                      <span className="inline-flex h-2 w-2 rounded-full bg-green-400 mr-1 dark:bg-green-300"></span>
+                    <span className="text-green-600 text-sm flex items-center dark:text-green-400">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-green-500 mr-1 dark:bg-green-400"></span>
                       Connected
                     </span>
                   ) : (
-                    <span className="text-red-400 text-sm flex items-center dark:text-red-300">
-                      <span className="inline-flex h-2 w-2 rounded-full bg-red-400 mr-1 dark:bg-red-300"></span>
+                    <span className="text-red-600 text-sm flex items-center dark:text-red-400">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-red-500 mr-1 dark:bg-red-400"></span>
                       Disconnected
                     </span>
                   )}
@@ -280,12 +280,12 @@ const ClashDetails = () => {
 
               <div
                 ref={chatContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 dark:bg-gray-700 dark:text-gray-200"
+                className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-700 dark:text-gray-200"
                 style={{ scrollBehavior: "smooth" }}
               >
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
-                    <div className="text-center text-gray-500 p-6 bg-gray-800/50 rounded-lg border border-gray-700 dark:text-gray-400 dark:bg-gray-700/50 dark:border-gray-600">
+                    <div className="text-center text-gray-500 p-6 bg-white rounded-lg border border-gray-200 shadow-sm dark:text-gray-400 dark:bg-gray-800/50 dark:border-gray-700">
                       <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-50 dark:text-gray-400" />
                       <p className="text-lg font-medium dark:text-gray-300">No messages yet</p>
                       <p className="text-sm dark:text-gray-400">Start the conversation with other departments</p>
@@ -301,21 +301,21 @@ const ClashDetails = () => {
                         style={{ animationDelay: `${index * 100}ms` }}
                       >
                         {!isCurrentDept && (
-                          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-medium mr-2 flex-shrink-0 dark:bg-indigo-500">
+                          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-medium text-white mr-2 flex-shrink-0 dark:bg-indigo-500">
                             {message.department?.substring(0, 2)}
                           </div>
                         )}
                         <div
-                          className={`max-w-[80%] rounded-lg px-4 py-3 shadow-lg ${
+                          className={`max-w-[80%] rounded-lg px-4 py-3 shadow ${
                             isCurrentDept
                               ? "bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-100"
-                              : "bg-gray-700 text-gray-100 dark:bg-gray-600 dark:text-gray-200"
+                              : "bg-white text-gray-800 border border-gray-200 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-600"
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1">
                             <span
                               className={`font-medium text-sm ${
-                                isCurrentDept ? "text-blue-200 dark:text-blue-100" : "text-gray-300 dark:text-gray-200"
+                                isCurrentDept ? "text-blue-100 dark:text-blue-100" : "text-gray-600 dark:text-gray-300"
                               }`}
                             >
                               {message.department}
@@ -341,19 +341,19 @@ const ClashDetails = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-700 bg-gray-800">
+              <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Type your message..."
-                    className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-blue-400"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     disabled={!socketConnected}
                   />
                   <Button
                     type="submit"
-                    className={`px-4 ${socketConnected ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-600 cursor-not-allowed"}`}
+                    className={`px-4 ${socketConnected ? "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600" : "bg-gray-300 dark:bg-gray-600 cursor-not-allowed"}`}
                     disabled={!socketConnected}
                   >
                     <Send size={18} className="mr-2" />
@@ -361,7 +361,7 @@ const ClashDetails = () => {
                   </Button>
                 </div>
                 {!socketConnected && (
-                  <p className="text-red-400 text-xs mt-2">Cannot send messages: Not connected to server</p>
+                  <p className="text-red-500 text-xs mt-2 dark:text-red-400">Cannot send messages: Not connected to server</p>
                 )}
               </form>
             </div>
@@ -370,10 +370,10 @@ const ClashDetails = () => {
           {/* Roadmap and Departments Section */}
           <div className="lg:col-span-1 space-y-6">
             {/* Proposed Roadmap */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-              <div className="p-4 border-b border-gray-700 flex items-center">
-                <Calendar className="h-5 w-5 text-blue-400 mr-2" />
-                <h2 className="text-lg font-semibold">Proposed Roadmap</h2>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm dark:bg-gray-800 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-200 flex items-center dark:border-gray-700">
+                <Calendar className="h-5 w-5 text-blue-600 mr-2 dark:text-blue-400" />
+                <h2 className="text-lg font-semibold dark:text-gray-100">Proposed Roadmap</h2>
               </div>
 
               <div className="p-4 space-y-4">
@@ -381,34 +381,34 @@ const ClashDetails = () => {
                   Object.keys(clashDetails.start_dates || {}).map((deptId, index) => (
                     <div
                       key={deptId}
-                      className="relative overflow-hidden rounded-lg border border-gray-700 hover:border-blue-500 transition-all duration-300 group"
+                      className="relative overflow-hidden rounded-lg border border-gray-200 hover:border-blue-500 transition-all duration-300 group dark:border-gray-700 dark:hover:border-blue-400"
                     >
                       {/* Priority indicator */}
-                      <div className="absolute top-0 right-0 px-2 py-1 text-xs font-medium bg-blue-900/50 text-blue-300 rounded-bl-lg">
+                      <div className="absolute top-0 right-0 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-bl-lg dark:bg-blue-900/50 dark:text-blue-300">
                         Priority {index + 1}
                       </div>
 
                       {/* Department indicator */}
-                      <div className="p-3 bg-gray-700/50 flex items-center">
-                        <div className="w-2 h-full rounded-full bg-blue-500 absolute left-0 top-0 bottom-0"></div>
-                        <div className="ml-3 font-medium">{deptId}</div>
+                      <div className="p-3 bg-gray-50 flex items-center dark:bg-gray-700/50">
+                        <div className="w-2 h-full rounded-full bg-blue-500 absolute left-0 top-0 bottom-0 dark:bg-blue-400"></div>
+                        <div className="ml-3 font-medium dark:text-gray-200">{deptId}</div>
                       </div>
 
                       {/* Date information */}
                       <div className="p-3 grid grid-cols-2 gap-3">
-                        <div className="bg-gray-700/30 p-2 rounded-md">
-                          <div className="text-xs text-gray-400 mb-1 flex items-center">
+                        <div className="bg-gray-50 p-2 rounded-md dark:bg-gray-700/30">
+                          <div className="text-xs text-gray-500 mb-1 flex items-center dark:text-gray-400">
                             <Clock className="h-3 w-3 mr-1" /> Start Date
                           </div>
-                          <div className="font-medium text-blue-300">
+                          <div className="font-medium text-blue-600 dark:text-blue-400">
                             {formatDateString(clashDetails.start_dates[deptId])}
                           </div>
                         </div>
-                        <div className="bg-gray-700/30 p-2 rounded-md">
-                          <div className="text-xs text-gray-400 mb-1 flex items-center">
+                        <div className="bg-gray-50 p-2 rounded-md dark:bg-gray-700/30">
+                          <div className="text-xs text-gray-500 mb-1 flex items-center dark:text-gray-400">
                             <Clock className="h-3 w-3 mr-1" /> End Date
                           </div>
-                          <div className="font-medium text-blue-300">
+                          <div className="font-medium text-blue-600 dark:text-blue-400">
                             {formatDateString(clashDetails.end_dates[deptId])}
                           </div>
                         </div>
@@ -421,17 +421,17 @@ const ClashDetails = () => {
               </div>
 
               {/* Accept roadmap button */}
-              <div className="p-4 border-t border-gray-700">
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                 {clashDetails && !clashDetails.is_resolved && !hasCurrentDeptAccepted() ? (
                   <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
+                    className="w-full bg-blue-600 hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 dark:bg-blue-500 dark:hover:bg-blue-600"
                     onClick={() => setIsConfirmModalOpen(true)}
                   >
                     <Check className="h-4 w-4 mr-2" />
                     Accept Roadmap
                   </Button>
                 ) : clashDetails && !clashDetails.is_resolved && hasCurrentDeptAccepted() ? (
-                  <div className="w-full p-3 bg-green-900/30 text-green-400 border border-green-700/50 rounded-lg text-center">
+                  <div className="w-full p-3 bg-green-100 text-green-800 border border-green-200 rounded-lg text-center dark:bg-green-900/30 dark:text-green-400 dark:border-green-700/50">
                     <Check className="h-4 w-4 inline-block mr-2" />
                     You have accepted this roadmap
                   </div>
@@ -440,32 +440,32 @@ const ClashDetails = () => {
             </div>
 
             {/* Departments Involved */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-              <div className="p-4 border-b border-gray-700 flex items-center">
-                <Users className="h-5 w-5 text-blue-400 mr-2" />
-                <h2 className="text-lg font-semibold">Departments Involved</h2>
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm dark:bg-gray-800 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-200 flex items-center dark:border-gray-700">
+                <Users className="h-5 w-5 text-blue-600 mr-2 dark:text-blue-400" />
+                <h2 className="text-lg font-semibold dark:text-gray-100">Departments Involved</h2>
               </div>
 
-              <div className="divide-y divide-gray-700">
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {clashDetails &&
                   Object.keys(clashDetails.involved_departments || {}).map((deptId) => (
                     <div
                       key={deptId}
-                      className="flex items-center justify-between p-4 hover:bg-gray-700/30 transition-colors"
+                      className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors dark:hover:bg-gray-700/30"
                     >
                       <div className="flex items-center">
                         <div
                           className={`w-2 h-2 rounded-full mr-3 ${
-                            clashDetails.involved_departments[deptId] ? "bg-green-400" : "bg-yellow-400"
-                          }`}
+                            clashDetails.involved_departments[deptId] ? "bg-green-500" : "bg-yellow-500"
+                          } dark:${clashDetails.involved_departments[deptId] ? "bg-green-400" : "bg-yellow-400"}`}
                         ></div>
-                        <span className="font-medium">{deptId}</span>
+                        <span className="font-medium dark:text-gray-200">{deptId}</span>
                       </div>
                       <div
                         className={`flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                           clashDetails.involved_departments[deptId]
-                            ? "bg-green-900/30 text-green-400 border border-green-700/50"
-                            : "bg-yellow-900/30 text-yellow-400 border border-yellow-700/50"
+                            ? "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700/50"
+                            : "bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700/50"
                         }`}
                       >
                         {clashDetails.involved_departments[deptId] ? (
@@ -485,8 +485,8 @@ const ClashDetails = () => {
               </div>
 
               {/* Summary */}
-              <div className="p-4 border-t border-gray-700 bg-gray-700/30">
-                <div className="text-sm text-gray-400">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 dark:bg-gray-700/30 dark:border-gray-700">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {clashDetails && Object.values(clashDetails.involved_departments).filter(Boolean).length} of{" "}
                   {clashDetails && Object.keys(clashDetails.involved_departments).length} departments have accepted
                 </div>
@@ -503,11 +503,11 @@ const ClashDetails = () => {
         title="Confirm Roadmap Acceptance"
       >
         <div className="text-center p-6">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-900/30 mb-6">
-            <Check className="h-8 w-8 text-blue-400" />
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-6 dark:bg-blue-900/30">
+            <Check className="h-8 w-8 text-blue-600 dark:text-blue-400" />
           </div>
-          <h3 className="text-xl font-medium text-white mb-4">Accept Proposed Roadmap?</h3>
-          <p className="text-gray-400 mb-6">
+          <h3 className="text-xl font-medium text-gray-900 mb-4 dark:text-white">Accept Proposed Roadmap?</h3>
+          <p className="text-gray-500 mb-6 dark:text-gray-400">
             By accepting this roadmap, you agree to the proposed schedule for your department's work. This action cannot
             be reversed.
           </p>
@@ -515,11 +515,11 @@ const ClashDetails = () => {
             <Button
               variant="secondary"
               onClick={() => setIsConfirmModalOpen(false)}
-              className="bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 dark:border-gray-600"
             >
               Cancel
             </Button>
-            <Button onClick={handleAccept} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleAccept} className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
               Confirm Acceptance
             </Button>
           </div>
@@ -530,4 +530,3 @@ const ClashDetails = () => {
 }
 
 export default ClashDetails
-
