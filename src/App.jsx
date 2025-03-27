@@ -34,7 +34,7 @@ import DeptCreateUser from "./pages/dept/CreateUser"
 import DeptRoles from "./pages/dept/Roles"
 import DeptCreateRole from "./pages/dept/CreateRole"
 import DeptFeatures from "./pages/dept/Features"
-import InventoryRequests  from "./pages/dept/InventoryRequests"
+import InventoryRequests2  from "./pages/dept/InventoryRequests2"
 import DeptInventoryHistory from "./pages/dept/InventoryHistory"
 import DeptInventoryAsk from "./pages/dept/InventoryAsk"
 import ExamplePermissionPage from "./pages/dept/ExamplePermissionPage"
@@ -156,7 +156,7 @@ export default function App() {
                   <Route path="dept/clashes/:id" element={<DeptClashDetails />} />
                   <Route path="dept/issues" element={<DeptIssues />} />
                   <Route path="dept/inventory" element={<DeptInventory />} />
-                  <Route path="dept/inventory/requests" element={<InventoryRequests  />} />
+                  <Route path="dept/inventory/requests" element={<InventoryRequests2  />} />
                   <Route path="dept/inventory/ask" element={<DeptInventoryAsk />} />
                   <Route path="dept/inventory/history" element={<DeptInventoryHistory/>}/>
                   <Route path="dept/users" element={<DeptUsers />} />

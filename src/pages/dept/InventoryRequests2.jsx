@@ -20,7 +20,7 @@ const INVENTORY_FEATURES = {
   MANAGE_REQUESTS: "FEAT_INVENTORY",
 }
 
-const InventoryRequests = () => {
+const InventoryRequests2 = () => {
   const navigate = useNavigate()
   const { showToast } = useToast()
 
@@ -462,5 +462,5 @@ const InventoryRequests = () => {
   )
 }
 
-export default InventoryRequests
+export default InventoryRequests2
 
