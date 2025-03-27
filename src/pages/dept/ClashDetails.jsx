@@ -1,237 +1,527 @@
-// src/pages/ClashDetails.jsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ArrowLeft, Send, Check } from "lucide-react"
+import { ArrowLeft, Send, Check, MessageSquare, Calendar, Users, Clock } from "lucide-react"
 import Button from "../../components/dept/Button"
 import Modal from "../../components/dept/Modal"
+import apiClient from "../../utils/apiClient"
+import { useToast } from "../../context/ToastContext"
+import { useAuth } from "../../context/AuthContext"
+import { io } from "socket.io-client"
+import { format } from "date-fns"
 
 const ClashDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { addToast } = useToast()
+  const { user } = useAuth()
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
-
-  // This would come from an API in a real application
-  const clash = {
-    clashId: "C001",
-    involvedDepartments: { D01: false, D02: false, D03: false },
-    departmentNames: { D01: "Roads Department", D02: "Electricity Department", D03: "Water Department" },
-    proposedStartDate: { D01: "2024-04-01", D02: "2024-04-10", D03: "2024-04-15" },
-    proposedEndDate: { D01: "2024-05-01", D02: "2024-05-10", D03: "2024-05-15" },
-    proposedRoadmap: { D01: "Priority 1", D02: "Priority 2", D03: "Priority 3" },
-    isResolved: false,
-    location: "Sector 45, Central Delhi",
-    description: "Multiple departments planning work in the same area during overlapping time periods.",
-    messages: [
-      { id: 1, sender: "D01", text: "We need to start road repairs by April 1st.", timestamp: "2024-03-10T10:30:00" },
-      {
-        id: 2,
-        sender: "D02",
-        text: "We have scheduled electrical work starting April 10th.",
-        timestamp: "2024-03-10T11:15:00",
-      },
-      {
-        id: 3,
-        sender: "D03",
-        text: "Our water pipeline replacement is set to begin April 15th.",
-        timestamp: "2024-03-10T14:20:00",
-      },
-      { id: 4, sender: "D01", text: "Can any department adjust their timeline?", timestamp: "2024-03-11T09:45:00" },
-      {
-        id: 5,
-        sender: "D02",
-        text: "We could potentially delay by 2 weeks if necessary.",
-        timestamp: "2024-03-11T13:10:00",
-      },
-    ],
-  }
-
+  const [clashDetails, setClashDetails] = useState(null)
+  const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [socket, setSocket] = useState(null)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const messagesEndRef = useRef(null)
+  const chatContainerRef = useRef(null)
+
+  // Initialize socket connection
+  useEffect(() => {
+    const socketInstance = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", {
+      withCredentials: true,
+    })
+
+    socketInstance.on("connect", () => {
+      console.log("Socket connected:", socketInstance.id)
+      setSocketConnected(true)
+    })
+
+    socketInstance.on("connect_error", (err) => {
+      console.error("Socket connection error:", err)
+      addToast("Socket connection error. Please refresh the page.", "error")
+    })
+
+    socketInstance.on("disconnect", () => {
+      console.log("Socket disconnected")
+      setSocketConnected(false)
+    })
+
+    setSocket(socketInstance)
+
+    // Clean up on unmount
+    return () => {
+      if (socketInstance) {
+        socketInstance.disconnect()
+      }
+    }
+  }, [addToast])
+
+  // Set up socket event listeners and join room
+  useEffect(() => {
+    if (!socket || !id || !user?.deptId) return
+
+    // Join the clash room
+    socket.emit("joinRoom", { clashId: id })
+
+    // Validate user access to this clash
+    socket.emit("validateUser", { deptId: user.deptId, clashId: id }, (response) => {
+      if (response?.status === "error") {
+        addToast(response.message, "error")
+      } else {
+        console.log("Validated and joined room:", id)
+      }
+    })
+
+    // Listen for new messages
+    socket.on("message", (message) => {
+      console.log("Received message:", message)
+      setMessages((prevMessages) => [...prevMessages, message])
+    })
+
+    // Clean up listeners on unmount
+    return () => {
+      socket.off("message")
+    }
+  }, [socket, id, user?.deptId, addToast])
+
+  // Fetch clash details and messages
+  useEffect(() => {
+    const fetchClashDetails = async () => {
+      try {
+        setLoading(true)
+        const detailsResponse = await apiClient.get(`/uclashes/${id}/involved-departments`)
+
+        if (detailsResponse.data.success) {
+          setClashDetails(detailsResponse.data)
+        } else {
+          setError("Failed to fetch clash details")
+          addToast("Failed to fetch clash details", "error")
+        }
+
+        // Fetch messages
+        const messagesResponse = await apiClient.get(`/loadMessages/messages?clashId=${id.toLowerCase()}`)
+
+        if (messagesResponse.data.messages) {
+          setMessages(messagesResponse.data.messages)
+        }
+      } catch (err) {
+        console.error("Error fetching clash data:", err)
+        setError("Error fetching clash data")
+        addToast("Error fetching clash data", "error")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (id) {
+      fetchClashDetails()
+    }
+  }, [id, addToast])
+
+  // Scroll to bottom of messages when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   const handleSendMessage = (e) => {
     e.preventDefault()
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !socket || !socketConnected) return
 
-    // In a real app, you would send this to an API
-    console.log("Sending message:", newMessage)
+    if (!user?.deptId) {
+      addToast("User department information is missing", "error")
+      return
+    }
+
+    // Send message using the correct event name and data structure
+    socket.emit(
+      "chatMessage",
+      {
+        clashId: id,
+        deptId: user.deptId,
+        message: newMessage,
+      },
+      (response) => {
+        if (response?.status === "error") {
+          addToast(response.message, "error")
+        } else {
+          console.log("Message sent successfully")
+        }
+      },
+    )
 
     // Clear the input
     setNewMessage("")
   }
 
-  const handleAccept = () => {
-    // In a real app, you would update the clash status via API
-    console.log("Accepting proposed roadmap")
-    setIsConfirmModalOpen(false)
+  const handleAccept = async () => {
+    try {
+      const response = await apiClient.put(`/uclashes/${id}/involved-departments`, {
+        status: true,
+      })
 
-    // Navigate back to clashes page
-    navigate("/dashboard/dept/clashes")
+      if (response.data.success) {
+        addToast("Roadmap accepted successfully", "success")
+
+        // Refresh clash details
+        const detailsResponse = await apiClient.get(`/uclashes/${id}/involved-departments`)
+        if (detailsResponse.data.success) {
+          setClashDetails(detailsResponse.data)
+        }
+
+        // If clash is resolved, navigate back to clashes page
+        if (response.data.is_resolved) {
+          navigate("/dashboard/dept/clashes")
+        }
+      } else {
+        addToast("Failed to accept roadmap", "error")
+      }
+    } catch (err) {
+      console.error("Error accepting roadmap:", err)
+      addToast("Error accepting roadmap", "error")
+    } finally {
+      setIsConfirmModalOpen(false)
+    }
+  }
+
+  // Format date for display
+  const formatDateString = (dateString) => {
+    if (!dateString) return "N/A"
+    try {
+      return format(new Date(dateString), "dd MMM yyyy")
+    } catch (error) {
+      return dateString
+    }
+  }
+
+  // Check if current department has accepted the roadmap
+  const hasCurrentDeptAccepted = () => {
+    if (!clashDetails || !user?.deptId) return false
+    return clashDetails.involved_departments[user.deptId] === true
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-900">
+        <div className="flex flex-col items-center">
+          <div className="h-16 w-16 border-4 border-t-blue-500 border-blue-200/30 rounded-full animate-spin"></div>
+          <p className="mt-4 text-blue-400 font-medium">Loading clash details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <div className="text-red-500 mb-4">{error}</div>
+        <Button onClick={() => navigate("/dashboard/dept/clashes")}>Back to Clashes</Button>
+      </div>
+    )
   }
 
   return (
-    <div className="p-2 md:p-6">
-      <div className="flex items-center mb-6">
-        <button
-        onClick={() => navigate("/dashboard/dept/clashes")}           className="p-2 mr-2 rounded-md text-gray-600 hover:bg-sky-100 hover:text-sky-600"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Clash {id}</h1>
-        <span
-          className={`ml-4 px-2 py-1 text-xs rounded-full ${clash.isResolved ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
-        >
-          {clash.isResolved ? "Resolved" : "Unresolved"}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center">
-              <span className="relative">
-                Chat
-                <span className="absolute top-0 right-0 transform translate-x-2 -translate-y-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              </span>
-            </h2>
-            <div className="space-y-4 mb-4 max-h-96 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
-              {clash.messages.map((message, index) => {
-                const isCurrentDept = message.sender === "D01" // Assuming current user is from D01
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isCurrentDept ? "justify-end" : "justify-start"} animate-fadeIn`}
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    {!isCurrentDept && (
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-medium mr-2 flex-shrink-0">
-                        {message.sender}
-                      </div>
-                    )}
-                    <div
-                      className={`max-w-[80%] rounded-lg px-4 py-3 shadow-sm ${
-                        isCurrentDept
-                          ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white"
-                          : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-600"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-sm">
-                          {clash.departmentNames[message.sender] || message.sender}
-                        </span>
-                        <span className="text-xs ml-2 opacity-75">
-                          {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                      <p className="leading-relaxed">{message.text}</p>
-                    </div>
-                    {isCurrentDept && (
-                      <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-xs font-medium text-white ml-2 flex-shrink-0">
-                        {message.sender}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <form onSubmit={handleSendMessage} className="flex gap-2 mt-4">
-              <input
-                type="text"
-                placeholder="Type your message..."
-                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 dark:bg-gray-700 dark:text-white"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-              />
-              <Button type="submit" className="px-5">
-                <Send size={18} className="mr-2" />
-                Send
-              </Button>
-            </form>
-          </div>
-        </div>
-
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6 overflow-hidden">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Proposed Roadmap</h2>
-            <div className="space-y-4">
-              {Object.keys(clash.proposedRoadmap).map((deptId, index) => (
-                <div
-                  key={deptId}
-                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 hover:border-sky-300 dark:hover:border-sky-600"
-                  style={{ animationDelay: `${index * 150}ms` }}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center">
-                      <div className="w-2 h-10 rounded-full bg-gradient-to-b from-sky-400 to-blue-600 mr-3"></div>
-                      <span className="font-medium text-gray-800 dark:text-white">{clash.departmentNames[deptId]}</span>
-                    </div>
-                    <span className="px-3 py-1 text-sm bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 rounded-full font-medium">
-                      {clash.proposedRoadmap[deptId]}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md">
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Start Date</div>
-                      <div className="font-medium text-gray-800 dark:text-gray-200">
-                        {clash.proposedStartDate[deptId]}
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md">
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">End Date</div>
-                      <div className="font-medium text-gray-800 dark:text-gray-200">
-                        {clash.proposedEndDate[deptId]}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {!clash.isResolved && (
-              <Button
-                className="w-full mt-6 transition-all duration-300 transform hover:scale-105"
-                onClick={() => setIsConfirmModalOpen(true)}
-              >
-                Accept Roadmap
-              </Button>
+    <div className="min-h-screen bg-gray-900 text-white dark:bg-gray-800 dark:text-gray-200">
+      {/* Header */}
+      <div className="bg-gray-800 border-b border-gray-700 p-4 dark:bg-gray-700 dark:border-gray-600">
+        <div className="container mx-auto flex items-center">
+          <button
+            onClick={() => navigate("/dashboard/dept/clashes")}
+            className="p-2 mr-3 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-gray-100"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold flex items-center">
+            Clash <span className="text-blue-400 ml-1 dark:text-blue-300">{id}</span>
+            <span
+              className={`ml-4 px-3 py-1 text-xs rounded-full ${
+                clashDetails?.is_resolved
+                  ? "bg-green-900/30 text-green-400 border border-green-700/50 dark:bg-green-800/30 dark:text-green-300 dark:border-green-600"
+                  : "bg-yellow-900/30 text-yellow-400 border border-yellow-700/50 dark:bg-yellow-800/30 dark:text-yellow-300 dark:border-yellow-600"
+              }`}
+            >
+              {clashDetails?.is_resolved ? "Resolved" : "Unresolved"}
+            </span>
+            {socketConnected ? (
+              <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-green-400 dark:bg-green-300"></span>
+            ) : (
+              <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-400 dark:bg-red-300"></span>
             )}
+          </h1>
+        </div>
+      </div>
+
+      <div className="container mx-auto p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Chat Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden h-[calc(100vh-180px)] flex flex-col dark:bg-gray-700 dark:border-gray-600">
+              <div className="p-4 border-b border-gray-700 flex items-center justify-between dark:border-gray-600">
+                <div className="flex items-center">
+                  <MessageSquare className="h-5 w-5 text-blue-400 mr-2 dark:text-blue-300" />
+                  <h2 className="text-lg font-semibold dark:text-gray-100">Department Chat</h2>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-400 mr-2 dark:text-gray-300">Connection:</span>
+                  {socketConnected ? (
+                    <span className="text-green-400 text-sm flex items-center dark:text-green-300">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-green-400 mr-1 dark:bg-green-300"></span>
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="text-red-400 text-sm flex items-center dark:text-red-300">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-red-400 mr-1 dark:bg-red-300"></span>
+                      Disconnected
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div
+                ref={chatContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 dark:bg-gray-700 dark:text-gray-200"
+                style={{ scrollBehavior: "smooth" }}
+              >
+                {messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-500 p-6 bg-gray-800/50 rounded-lg border border-gray-700 dark:text-gray-400 dark:bg-gray-700/50 dark:border-gray-600">
+                      <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-50 dark:text-gray-400" />
+                      <p className="text-lg font-medium dark:text-gray-300">No messages yet</p>
+                      <p className="text-sm dark:text-gray-400">Start the conversation with other departments</p>
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((message, index) => {
+                    const isCurrentDept = message.department === user?.deptId
+                    return (
+                      <div
+                        key={message.id || index}
+                        className={`flex ${isCurrentDept ? "justify-end" : "justify-start"} animate-fadeIn`}
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      >
+                        {!isCurrentDept && (
+                          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-medium mr-2 flex-shrink-0 dark:bg-indigo-500">
+                            {message.department?.substring(0, 2)}
+                          </div>
+                        )}
+                        <div
+                          className={`max-w-[80%] rounded-lg px-4 py-3 shadow-lg ${
+                            isCurrentDept
+                              ? "bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-100"
+                              : "bg-gray-700 text-gray-100 dark:bg-gray-600 dark:text-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className={`font-medium text-sm ${
+                                isCurrentDept ? "text-blue-200 dark:text-blue-100" : "text-gray-300 dark:text-gray-200"
+                              }`}
+                            >
+                              {message.department}
+                            </span>
+                            <span className="text-xs ml-2 opacity-75 dark:text-gray-400">
+                              {new Date(message.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                          <p className="leading-relaxed">{message.message}</p>
+                        </div>
+                        {isCurrentDept && (
+                          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-medium text-white ml-2 flex-shrink-0 dark:bg-blue-500 dark:text-gray-100">
+                            {message.department?.substring(0, 2)}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-700 bg-gray-800">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Type your message..."
+                    className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    disabled={!socketConnected}
+                  />
+                  <Button
+                    type="submit"
+                    className={`px-4 ${socketConnected ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-600 cursor-not-allowed"}`}
+                    disabled={!socketConnected}
+                  >
+                    <Send size={18} className="mr-2" />
+                    Send
+                  </Button>
+                </div>
+                {!socketConnected && (
+                  <p className="text-red-400 text-xs mt-2">Cannot send messages: Not connected to server</p>
+                )}
+              </form>
+            </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Departments Involved</h2>
-            <div className="space-y-2">
-              {Object.keys(clash.involvedDepartments).map((deptId) => (
-                <div key={deptId} className="flex items-center justify-between p-2 border-b border-gray-100">
-                  <span>{clash.departmentNames[deptId]}</span>
-                  <span
-                    className={`px-2 py-0.5 text-xs rounded-full ${
-                      clash.involvedDepartments[deptId]
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
+          {/* Roadmap and Departments Section */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Proposed Roadmap */}
+            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-700 flex items-center">
+                <Calendar className="h-5 w-5 text-blue-400 mr-2" />
+                <h2 className="text-lg font-semibold">Proposed Roadmap</h2>
+              </div>
+
+              <div className="p-4 space-y-4">
+                {clashDetails &&
+                  Object.keys(clashDetails.start_dates || {}).map((deptId, index) => (
+                    <div
+                      key={deptId}
+                      className="relative overflow-hidden rounded-lg border border-gray-700 hover:border-blue-500 transition-all duration-300 group"
+                    >
+                      {/* Priority indicator */}
+                      <div className="absolute top-0 right-0 px-2 py-1 text-xs font-medium bg-blue-900/50 text-blue-300 rounded-bl-lg">
+                        Priority {index + 1}
+                      </div>
+
+                      {/* Department indicator */}
+                      <div className="p-3 bg-gray-700/50 flex items-center">
+                        <div className="w-2 h-full rounded-full bg-blue-500 absolute left-0 top-0 bottom-0"></div>
+                        <div className="ml-3 font-medium">{deptId}</div>
+                      </div>
+
+                      {/* Date information */}
+                      <div className="p-3 grid grid-cols-2 gap-3">
+                        <div className="bg-gray-700/30 p-2 rounded-md">
+                          <div className="text-xs text-gray-400 mb-1 flex items-center">
+                            <Clock className="h-3 w-3 mr-1" /> Start Date
+                          </div>
+                          <div className="font-medium text-blue-300">
+                            {formatDateString(clashDetails.start_dates[deptId])}
+                          </div>
+                        </div>
+                        <div className="bg-gray-700/30 p-2 rounded-md">
+                          <div className="text-xs text-gray-400 mb-1 flex items-center">
+                            <Clock className="h-3 w-3 mr-1" /> End Date
+                          </div>
+                          <div className="font-medium text-blue-300">
+                            {formatDateString(clashDetails.end_dates[deptId])}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hover effect */}
+                      <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Accept roadmap button */}
+              <div className="p-4 border-t border-gray-700">
+                {clashDetails && !clashDetails.is_resolved && !hasCurrentDeptAccepted() ? (
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
+                    onClick={() => setIsConfirmModalOpen(true)}
                   >
-                    {clash.involvedDepartments[deptId] ? "Accepted" : "Pending"}
-                  </span>
+                    <Check className="h-4 w-4 mr-2" />
+                    Accept Roadmap
+                  </Button>
+                ) : clashDetails && !clashDetails.is_resolved && hasCurrentDeptAccepted() ? (
+                  <div className="w-full p-3 bg-green-900/30 text-green-400 border border-green-700/50 rounded-lg text-center">
+                    <Check className="h-4 w-4 inline-block mr-2" />
+                    You have accepted this roadmap
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Departments Involved */}
+            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+              <div className="p-4 border-b border-gray-700 flex items-center">
+                <Users className="h-5 w-5 text-blue-400 mr-2" />
+                <h2 className="text-lg font-semibold">Departments Involved</h2>
+              </div>
+
+              <div className="divide-y divide-gray-700">
+                {clashDetails &&
+                  Object.keys(clashDetails.involved_departments || {}).map((deptId) => (
+                    <div
+                      key={deptId}
+                      className="flex items-center justify-between p-4 hover:bg-gray-700/30 transition-colors"
+                    >
+                      <div className="flex items-center">
+                        <div
+                          className={`w-2 h-2 rounded-full mr-3 ${
+                            clashDetails.involved_departments[deptId] ? "bg-green-400" : "bg-yellow-400"
+                          }`}
+                        ></div>
+                        <span className="font-medium">{deptId}</span>
+                      </div>
+                      <div
+                        className={`flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          clashDetails.involved_departments[deptId]
+                            ? "bg-green-900/30 text-green-400 border border-green-700/50"
+                            : "bg-yellow-900/30 text-yellow-400 border border-yellow-700/50"
+                        }`}
+                      >
+                        {clashDetails.involved_departments[deptId] ? (
+                          <>
+                            <Check className="h-3 w-3 mr-1" />
+                            Accepted
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Summary */}
+              <div className="p-4 border-t border-gray-700 bg-gray-700/30">
+                <div className="text-sm text-gray-400">
+                  {clashDetails && Object.values(clashDetails.involved_departments).filter(Boolean).length} of{" "}
+                  {clashDetails && Object.keys(clashDetails.involved_departments).length} departments have accepted
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Confirm Action">
-        <div className="text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-sky-100 mb-4">
-            <Check className="h-6 w-6 text-sky-600" />
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        title="Confirm Roadmap Acceptance"
+      >
+        <div className="text-center p-6">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-900/30 mb-6">
+            <Check className="h-8 w-8 text-blue-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Are You Sure?</h3>
-          <p className="text-sm text-gray-500 mb-6">
-            This action cannot be reversed. Once accepted, the roadmap will be finalized.
+          <h3 className="text-xl font-medium text-white mb-4">Accept Proposed Roadmap?</h3>
+          <p className="text-gray-400 mb-6">
+            By accepting this roadmap, you agree to the proposed schedule for your department's work. This action cannot
+            be reversed.
           </p>
           <div className="flex justify-center space-x-4">
-            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setIsConfirmModalOpen(false)}
+              className="bg-gray-700 hover:bg-gray-600 text-white border-gray-600"
+            >
               Cancel
             </Button>
-            <Button onClick={handleAccept}>Accept</Button>
+            <Button onClick={handleAccept} className="bg-blue-600 hover:bg-blue-700">
+              Confirm Acceptance
+            </Button>
           </div>
         </div>
       </Modal>

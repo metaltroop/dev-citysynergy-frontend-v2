@@ -31,6 +31,13 @@ const CustomDateSelector = ({
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const dropdownRef = useRef(null)
 
+  // Update the CustomDateSelector to include month/year selection functionality
+  // Replace the calendar-month section with this enhanced version that allows clicking on month/year to drill up
+
+  // In the component, add these new state variables after the existing state declarations:
+  const [viewMode, setViewMode] = useState("days") // 'days', 'months', 'years'
+  const [decadeStart, setDecadeStart] = useState(Math.floor(currentMonth.getFullYear() / 10) * 10)
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -68,18 +75,59 @@ const CustomDateSelector = ({
     return placeholder
   }
 
-  // Navigate to previous month
-  const prevMonth = () => {
-    const newCurrentMonth = new Date(currentMonth)
-    newCurrentMonth.setMonth(newCurrentMonth.getMonth() - 1)
-    setCurrentMonth(newCurrentMonth)
+  // Replace the calendar rendering section with this enhanced version:
+  const getMonthName = (date) => {
+    return date.toLocaleString("default", { month: "long", year: "numeric" })
   }
 
-  // Navigate to next month
-  const nextMonth = () => {
-    const newCurrentMonth = new Date(currentMonth)
-    newCurrentMonth.setMonth(newCurrentMonth.getMonth() + 1)
-    setCurrentMonth(newCurrentMonth)
+  const getMonthShortName = (monthIndex) => {
+    return new Date(2000, monthIndex, 1).toLocaleString("default", { month: "short" })
+  }
+
+  // Navigate to previous month/year/decade based on current view
+  const handlePrevious = () => {
+    if (viewMode === "days") {
+      const newCurrentMonth = new Date(currentMonth)
+      newCurrentMonth.setMonth(newCurrentMonth.getMonth() - 1)
+      setCurrentMonth(newCurrentMonth)
+    } else if (viewMode === "months") {
+      const newCurrentMonth = new Date(currentMonth)
+      newCurrentMonth.setFullYear(newCurrentMonth.getFullYear() - 1)
+      setCurrentMonth(newCurrentMonth)
+    } else if (viewMode === "years") {
+      setDecadeStart(decadeStart - 10)
+    }
+  }
+
+  // Navigate to next month/year/decade based on current view
+  const handleNext = () => {
+    if (viewMode === "days") {
+      const newCurrentMonth = new Date(currentMonth)
+      newCurrentMonth.setMonth(newCurrentMonth.getMonth() + 1)
+      setCurrentMonth(newCurrentMonth)
+    } else if (viewMode === "months") {
+      const newCurrentMonth = new Date(currentMonth)
+      newCurrentMonth.setFullYear(newCurrentMonth.getFullYear() + 1)
+      setCurrentMonth(newCurrentMonth)
+    } else if (viewMode === "years") {
+      setDecadeStart(decadeStart + 10)
+    }
+  }
+
+  // Handle month selection when in month view
+  const handleMonthSelect = (monthIndex) => {
+    const newDate = new Date(currentMonth)
+    newDate.setMonth(monthIndex)
+    setCurrentMonth(newDate)
+    setViewMode("days")
+  }
+
+  // Handle year selection when in year view
+  const handleYearSelect = (year) => {
+    const newDate = new Date(currentMonth)
+    newDate.setFullYear(year)
+    setCurrentMonth(newDate)
+    setViewMode("months")
   }
 
   // Generate calendar days for a month
@@ -152,11 +200,6 @@ const CustomDateSelector = ({
     })
   }
 
-  // Month names for calendar headers
-  const getMonthName = (date) => {
-    return date.toLocaleString("default", { month: "long", year: "numeric" })
-  }
-
   // Day names for calendar header
   const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 
@@ -189,45 +232,109 @@ const CustomDateSelector = ({
 
       {isOpen && (
         <div className="absolute z-20 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg p-4 w-auto">
+          {/* Replace the calendar rendering in the JSX with this enhanced version: */}
           <div className="calendar-month">
             <div className="flex justify-between items-center mb-2">
               <button
                 type="button"
-                onClick={prevMonth}
+                onClick={handlePrevious}
                 className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
               >
                 <ChevronLeft className="h-4 w-4 text-gray-500 dark:text-gray-400" />
               </button>
-              <div className="text-sm font-medium dark:text-white">{getMonthName(currentMonth)}</div>
+
+              {viewMode === "days" && (
+                <button
+                  onClick={() => setViewMode("months")}
+                  className="text-sm font-medium dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded"
+                >
+                  {getMonthName(currentMonth)}
+                </button>
+              )}
+
+              {viewMode === "months" && (
+                <button
+                  onClick={() => setViewMode("years")}
+                  className="text-sm font-medium dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded"
+                >
+                  {currentMonth.getFullYear()}
+                </button>
+              )}
+
+              {viewMode === "years" && (
+                <span className="text-sm font-medium dark:text-white">
+                  {decadeStart} - {decadeStart + 9}
+                </span>
+              )}
+
               <button
                 type="button"
-                onClick={nextMonth}
+                onClick={handleNext}
                 className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
               >
                 <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
-            <div className="grid grid-cols-7 gap-1">
-              {dayNames.map((day) => (
-                <div key={day} className="text-center text-xs text-gray-500 dark:text-gray-400 py-1">
-                  {day}
-                </div>
-              ))}
-              {getDaysInMonth(currentMonth).map((dayObj, i) => (
-                <div
-                  key={i}
-                  className={`
-                    text-center py-1 text-xs rounded-md cursor-pointer relative
-                    ${!dayObj.isCurrentMonth ? "text-gray-400 dark:text-gray-600" : ""}
-                    ${isSelected(dayObj.date) ? "bg-blue-500 text-white" : ""}
-                    ${dayObj.date ? "hover:bg-gray-100 dark:hover:bg-gray-700" : ""}
-                  `}
-                  onClick={() => handleDateClick(dayObj.date)}
-                >
-                  {dayObj.date?.getDate()}
-                </div>
-              ))}
-            </div>
+
+            {viewMode === "days" && (
+              <div className="grid grid-cols-7 gap-1">
+                {dayNames.map((day) => (
+                  <div key={day} className="text-center text-xs text-gray-500 dark:text-gray-400 py-1">
+                    {day}
+                  </div>
+                ))}
+                {getDaysInMonth(currentMonth).map((dayObj, i) => (
+                  <div
+                    key={i}
+                    className={`
+                      text-center py-1 text-xs rounded-md cursor-pointer relative
+                      ${!dayObj.isCurrentMonth ? "text-gray-400 dark:text-gray-600" : ""}
+                      ${isSelected(dayObj.date) ? "bg-blue-500 text-white" : ""}
+                      ${dayObj.date ? "hover:bg-gray-100 dark:hover:bg-gray-700" : ""}
+                    `}
+                    onClick={() => dayObj.date && handleDateClick(dayObj.date)}
+                  >
+                    {dayObj.date?.getDate()}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {viewMode === "months" && (
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 12 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`
+                      text-center py-2 rounded-md cursor-pointer
+                      hover:bg-gray-100 dark:hover:bg-gray-700
+                      ${currentMonth.getMonth() === i ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" : ""}
+                    `}
+                    onClick={() => handleMonthSelect(i)}
+                  >
+                    {getMonthShortName(i)}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {viewMode === "years" && (
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 10 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`
+                      text-center py-2 rounded-md cursor-pointer
+                      hover:bg-gray-100 dark:hover:bg-gray-700
+                      ${currentMonth.getFullYear() === decadeStart + i ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" : ""}
+                    `}
+                    onClick={() => handleYearSelect(decadeStart + i)}
+                  >
+                    {decadeStart + i}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
