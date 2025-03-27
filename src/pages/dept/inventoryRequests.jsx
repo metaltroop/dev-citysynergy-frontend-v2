@@ -158,7 +158,7 @@ const InventoryRequests = () => {
   return (
     <DeptPermissionGuard
       featureId={INVENTORY_FEATURES.MANAGE_REQUESTS}
-      fallback={<div className="p-6 text-center">You don't have permission to manage inventory requests.</div>}
+      fallback={<div className="p-6 text-center"> You don&apos;t have permission to manage inventory requests.</div>}
     >
       <div className="max-w-auto mx-auto p-6">
         <div className="flex items-center mb-6">
