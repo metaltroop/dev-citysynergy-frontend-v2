@@ -41,13 +41,16 @@ const Users = () => {
   const { user: currentUser, permissions } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const defaultViewMode = useViewMode();
-  const [viewMode, setViewMode] = useState(defaultViewMode); // 'table', 'card'
+  const { viewMode: defaultViewMode, setViewMode: setStoredViewMode } = useViewMode();
+  const [viewMode, setViewMode] = useState(defaultViewMode);
   
-  // Update viewMode when screen size changes
+  // Remove the problematic useEffect
   useEffect(() => {
-    setViewMode(defaultViewMode);
+    if (defaultViewMode !== viewMode) {
+      setViewMode(defaultViewMode);
+    }
   }, [defaultViewMode]);
+
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isUserDetailModalOpen, setIsUserDetailModalOpen] = useState(false);
@@ -65,11 +68,20 @@ const Users = () => {
   const [error, setError] = useState(null);
   const [toasts, setToasts] = useState([]);
 
-  // Fetch users on component mount
   useEffect(() => {
-    fetchUsers();
-    fetchRoles();
-  }, []);
+    const initializeData = async () => {
+      try {
+        setLoadingState(true);
+        await Promise.all([fetchUsers(), fetchRoles()]);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      } finally {
+        setLoadingState(false);
+      }
+    };
+  
+    initializeData();
+  }, []); 
 
   // Fetch users from API
   const fetchUsers = async () => {
@@ -140,7 +152,7 @@ const Users = () => {
         },
       ]);
     } finally {
-      
+      setLoadingState(false);
     }
   };
 

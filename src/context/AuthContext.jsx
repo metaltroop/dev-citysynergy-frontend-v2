@@ -42,8 +42,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error("Error parsing user data from localStorage:", error)
         // Handle invalid data by clearing it
-        localStorage.removeItem("userData")
-        localStorage.removeItem("permissions")
+       
       }
     }
   }, [])

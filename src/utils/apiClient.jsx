@@ -1,4 +1,5 @@
 import axios from "axios"
+import { useNavigate } from 'react-router-dom';
 
 const apiClient = axios.create({
   baseURL: `${import.meta.env.VITE_API_BASE_URL}/api/`,
@@ -20,62 +21,131 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
+// Create a navigation function that we can use outside React components
+let navigate;
+export const setNavigate = (nav) => {
+  navigate = nav;
+};
+
 const showSessionExpiredModal = () => {
-  if (sessionExpiredModalShown) return
+  if (sessionExpiredModalShown) return;
+  sessionExpiredModalShown = true;
 
-  sessionExpiredModalShown = true
+  const currentPath = window.location.pathname;
+  const isHomePage = currentPath === '/home';
+  const isDashboard = currentPath.includes('/dashboard/');
 
-  // Create modal elements
-  const modalOverlay = document.createElement("div")
-  modalOverlay.className = "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+  // Create modal elements with improved design
+  const modalOverlay = document.createElement("div");
+  modalOverlay.className = "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-300";
+  modalOverlay.style.opacity = "0";
 
-  const modalContent = document.createElement("div")
-  modalContent.className = "bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md mx-auto"
+  const modalContent = document.createElement("div");
+  modalContent.className = "bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full transform transition-all duration-300 scale-95";
+  modalContent.style.transform = "scale(0.95)";
 
-  const modalHeader = document.createElement("div")
-  modalHeader.className = "flex items-center justify-between mb-4"
+  const modalHeader = document.createElement("div");
+  modalHeader.className = "flex items-center justify-between mb-6";
 
-  const modalTitle = document.createElement("h3")
-  modalTitle.className = "text-lg font-medium text-gray-900 dark:text-white"
-  modalTitle.textContent = "Session Expired"
+  const modalTitle = document.createElement("div");
+  modalTitle.className = "flex items-center gap-3";
+  modalTitle.innerHTML = `
+    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Session Expired</h3>
+  `;
 
-  const modalBody = document.createElement("div")
-  modalBody.className = "mb-6"
-  modalBody.innerHTML =
-    '<p class="text-gray-700 dark:text-gray-300">Your session has expired or is invalid. Please log in again to continue.</p>'
+  // Add close button for home route with improved design
+  if (isHomePage) {
+    const closeButton = document.createElement("button");
+    closeButton.className = "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 transition-colors duration-200";
+    closeButton.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    `;
+    closeButton.onclick = () => {
+      modalOverlay.style.opacity = "0";
+      modalContent.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        sessionExpiredModalShown = false;
+        document.body.removeChild(modalOverlay);
+      }, 200);
+    };
+    modalHeader.appendChild(closeButton);
+  }
 
-  const modalFooter = document.createElement("div")
-  modalFooter.className = "flex justify-end"
+  const modalBody = document.createElement("div");
+  modalBody.className = "mb-8 space-y-4";
+  modalBody.innerHTML = `
+    <p class="text-gray-600 dark:text-gray-300">Your session has expired or is invalid. Please log in again to continue using the application.</p>
+    <div class="border-l-4 border-yellow-400 bg-yellow-50 dark:bg-yellow-400/10 p-4 rounded">
+      <p class="text-sm text-yellow-700 dark:text-yellow-300">Any unsaved changes may be lost. Please ensure your work is saved before continuing.</p>
+    </div>
+  `;
 
-  const loginButton = document.createElement("button")
-  loginButton.className = "px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200"
-  loginButton.textContent = "Log In"
+  const modalFooter = document.createElement("div");
+  modalFooter.className = "flex justify-end items-center gap-3";
+
+  const loginButton = document.createElement("button");
+  loginButton.className = "px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-600/50 transition duration-200 font-medium";
+  loginButton.textContent = "Log In";
   loginButton.onclick = () => {
-    // Clear auth data and redirect to login
-    localStorage.removeItem("token")
-    localStorage.removeItem("userData")
-    localStorage.removeItem("permissions")
-    sessionStorage.removeItem("token")
-    sessionStorage.removeItem("userData")
+    // Clear auth data
+    localStorage.removeItem("token");
+    
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("userData");
 
-    sessionExpiredModalShown = false
-    document.body.removeChild(modalOverlay)
+    // Animate modal out
+    modalOverlay.style.opacity = "0";
+    modalContent.style.transform = "scale(0.95)";
+    
+    setTimeout(() => {
+      sessionExpiredModalShown = false;
+      document.body.removeChild(modalOverlay);
+      // Use navigate instead of window.location
+      if (navigate) {
+        navigate('/login', { replace: true });
+      } else {
+        // Fallback to window.location if navigate is not available
+        window.location.href = '/login';
+      }
+    }, 200);
+  };
 
-    window.location.href = "/login"
+  if (isHomePage) {
+    const cancelButton = document.createElement("button");
+    cancelButton.className = "px-4 py-2.5 bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition duration-200 font-medium";
+    cancelButton.textContent = "Continue Browsing";
+    cancelButton.onclick = () => {
+      modalOverlay.style.opacity = "0";
+      modalContent.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        sessionExpiredModalShown = false;
+        document.body.removeChild(modalOverlay);
+      }, 200);
+    };
+    modalFooter.appendChild(cancelButton);
   }
 
   // Assemble modal
-  modalHeader.appendChild(modalTitle)
-  modalFooter.appendChild(loginButton)
+  modalHeader.appendChild(modalTitle);
+  modalFooter.appendChild(loginButton);
 
-  modalContent.appendChild(modalHeader)
-  modalContent.appendChild(modalBody)
-  modalContent.appendChild(modalFooter)
-  modalOverlay.appendChild(modalContent)
+  modalContent.appendChild(modalHeader);
+  modalContent.appendChild(modalBody);
+  modalContent.appendChild(modalFooter);
+  modalOverlay.appendChild(modalContent);
 
-  // Add to body
-  document.body.appendChild(modalOverlay)
-}
+  // Add to body with animation
+  document.body.appendChild(modalOverlay);
+  requestAnimationFrame(() => {
+    modalOverlay.style.opacity = "1";
+    modalContent.style.transform = "scale(1)";
+  });
+};
 
 const refreshToken = async () => {
   try {
@@ -116,10 +186,9 @@ const handleAuthError = async () => {
 
   // If refresh fails, show session expired modal
   localStorage.removeItem("token");
-  localStorage.removeItem("userData");
-  localStorage.removeItem("permissions");
+ 
   sessionStorage.removeItem("token");
-  sessionStorage.removeItem("userData");
+ 
 
   showSessionExpiredModal();
   return null;

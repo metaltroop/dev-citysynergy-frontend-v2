@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom"
 import { AuthProvider } from "./context/AuthContext"
 import { LoadingProvider } from "./context/LoadingContext"
 import { AuthGuard } from "./components/AuthGuard"
@@ -7,6 +7,7 @@ import { Login } from "./pages/Login"
 import { OTPVerification } from "./pages/OTPVerification"
 import MainLayout from "./layouts/MainLayout"
 import { useState, useEffect } from "react"
+import { setNavigate } from './utils/apiClient';
 
 // Import all dashboard pages
 import DevDashboard from "./pages/dev/Dashboard"
@@ -80,85 +81,98 @@ const DashboardRedirect = () => {
   
   return <Navigate to={`/dashboard/${dashboardType}`} replace />;
 };
+
+// Create a wrapper component to handle navigation setup
+const NavigationSetup = () => {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    setNavigate(navigate);
+  }, [navigate]);
+
+  return null;
+};
+
 export default function App() {
   return (
     <ErrorBoundary>
-    <LoadingProvider>
-      <ToastProvider>
-      <Router>
-        <AuthProvider>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Navigate to="/home" replace />} />
-            <Route path="/home" element={<Home />} />
+      <LoadingProvider>
+        <ToastProvider>
+          <Router>
+            <NavigationSetup /> {/* Add NavigationSetup inside Router */}
+            <AuthProvider>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Navigate to="/home" replace />} />
+                <Route path="/home" element={<Home />} />
 
-            {/* Auth routes */}
-            <Route
-              path="/login"
-              element={
-                <AuthGuard>
-                  <Login />
-                </AuthGuard>
-              }
-            />
-            <Route
-              path="/verify-otp"
-              element={
-                <AuthGuard>
-                  <OTPVerification />
-                </AuthGuard>
-              }
-            />
+                {/* Auth routes */}
+                <Route
+                  path="/login"
+                  element={
+                    <AuthGuard>
+                      <Login />
+                    </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/verify-otp"
+                  element={
+                    <AuthGuard>
+                      <OTPVerification />
+                    </AuthGuard>
+                  }
+                />
 
-            {/* Protected Dashboard Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <AuthGuard requireAuth>
-                  <MainLayout />
-                </AuthGuard>
-              }
-            >
-              <Route index element={<DashboardRedirect />} />
+                {/* Protected Dashboard Routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <AuthGuard requireAuth>
+                      <MainLayout />
+                    </AuthGuard>
+                  }
+                >
+                  <Route index element={<DashboardRedirect />} />
 
-              {/* Dev Routes */}
-              <Route path="dev" element={<DevDashboard />} />
-              <Route path="dev/users" element={<DevUsers />} />
-              <Route path="dev/users/create" element={<DevCreateUser />} />
-              <Route path="dev/users/edit/:id" element={<DevEditUser />} />
-              <Route path="dev/departments" element={<DevDepartments />} />
-              <Route path="dev/departments/create" element={<DevCreateDepartment />} />
-              <Route path="dev/departments/edit/:id" element={<DevEditDepartment />} />
-              <Route path="dev/roles" element={<DevRoles />} />
-              <Route path="dev/features" element={<DevFeatures />} />
-              <Route path="dev/clashes" element={<DevClashes />} />
+                  {/* Dev Routes */}
+                  <Route path="dev" element={<DevDashboard />} />
+                  <Route path="dev/users" element={<DevUsers />} />
+                  <Route path="dev/users/create" element={<DevCreateUser />} />
+                  <Route path="dev/users/edit/:id" element={<DevEditUser />} />
+                  <Route path="dev/departments" element={<DevDepartments />} />
+                  <Route path="dev/departments/create" element={<DevCreateDepartment />} />
+                  <Route path="dev/departments/edit/:id" element={<DevEditDepartment />} />
+                  <Route path="dev/roles" element={<DevRoles />} />
+                  <Route path="dev/features" element={<DevFeatures />} />
+                  <Route path="dev/clashes" element={<DevClashes />} />
 
-              {/* Department Routes */}
-              <Route path="dept" element={<DeptDashboard />} />
-              <Route path="dept/tenders" element={<DeptTenders />} />
-              <Route path="dept/tenders/create" element={<DeptCreateTender />} />
-              <Route path="dept/tenders/:id" element={<DeptTenderDetails />} />
-              <Route path="dept/clashes" element={<DeptClashes />} />
-              <Route path="dept/clashes/:id" element={<DeptClashDetails />} />
-              <Route path="dept/issues" element={<DeptIssues />} />
-              <Route path="dept/inventory" element={<DeptInventory />} />
-              <Route path="dept/inventory/requests" element={<DeptInventoryRequests />} />
-              <Route path="dept/inventory/ask" element={<DeptInventoryAsk />} />
-              <Route path="dept/inventory/history" element={<DeptInventoryHistory/>}/>
-              <Route path="dept/users" element={<DeptUsers />} />
-              <Route path="dept/users/create" element={<DeptCreateUser />} />
-              <Route path="dept/roles" element={<DeptRoles />} />
-              <Route path="dept/roles/create" element={<DeptCreateRole />} />
-              <Route path="dept/features" element={<DeptFeatures />} />
-              <Route path="dept/permissions-example" element={<ExamplePermissionPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/home" replace />} />
-          </Routes>
-        </AuthProvider>
-      </Router>
-      </ToastProvider>
-    </LoadingProvider>
+                  {/* Department Routes */}
+                  <Route path="dept" element={<DeptDashboard />} />
+                  <Route path="dept/tenders" element={<DeptTenders />} />
+                  <Route path="dept/tenders/create" element={<DeptCreateTender />} />
+                  <Route path="dept/tenders/:id" element={<DeptTenderDetails />} />
+                  <Route path="dept/clashes" element={<DeptClashes />} />
+                  <Route path="dept/clashes/:id" element={<DeptClashDetails />} />
+                  <Route path="dept/issues" element={<DeptIssues />} />
+                  <Route path="dept/inventory" element={<DeptInventory />} />
+                  <Route path="dept/inventory/requests" element={<DeptInventoryRequests />} />
+                  <Route path="dept/inventory/ask" element={<DeptInventoryAsk />} />
+                  <Route path="dept/inventory/history" element={<DeptInventoryHistory/>}/>
+                  <Route path="dept/users" element={<DeptUsers />} />
+                  <Route path="dept/users/create" element={<DeptCreateUser />} />
+                  <Route path="dept/roles" element={<DeptRoles />} />
+                  <Route path="dept/roles/create" element={<DeptCreateRole />} />
+                  <Route path="dept/features" element={<DeptFeatures />} />
+                  <Route path="dept/permissions-example" element={<ExamplePermissionPage />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/home" replace />} />
+              </Routes>
+            </AuthProvider>
+          </Router>
+        </ToastProvider>
+      </LoadingProvider>
     </ErrorBoundary>
-  )
+  );
 }
 
