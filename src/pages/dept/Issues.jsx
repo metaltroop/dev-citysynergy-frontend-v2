@@ -72,7 +72,7 @@ const Issues = () => {
   // Update issue status
   const updateIssueStatus = async (issueId, status) => {
     try {
-      const response = await apiClient.post(`issues/update-status/${issueId}`, { status })
+      const response = await apiClient.put(`issues/update-status/${issueId}`, { status })
 
       // Update the issue in the local state
       setIssues((prevIssues) =>
