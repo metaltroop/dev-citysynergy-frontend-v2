@@ -101,8 +101,17 @@ const InventoryAsk = () => {
       })
 
       if (response.data.success) {
-        showToast("Request submitted successfully", "success")
+        console.log('Request successful, closing modal...')
+        // First close the modal and reset states
         setIsRequestModalOpen(false)
+        setSelectedItem(null)
+        setRequestQuantity(1)
+        setSubmittingRequest(false)
+        
+        // Then show toast and handle navigation
+        showToast("Request submitted successfully", "success")
+        
+        // Finally refresh and navigate
         await refreshSharedResources() // Refresh the list after successful request
         navigate("/dashboard/dept/inventory")
       } else {

@@ -693,7 +693,6 @@ export const Home = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
             </div>
             <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-blue-600 rounded-lg -z-10"></div>
-            <div className="absolute -top-6 -right-6 w-32 h-32 bg-green-600 rounded-lg -z-10"></div>
           </div>
         </div>
       </section>

@@ -63,16 +63,33 @@ const Inventory = () => {
   const [creatingItem, setCreatingItem] = useState(false);
   const [sharingItem, setSharingItem] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [returningItem, setReturningItem] = useState(false);
+  const [returningItems, setReturningItems] = useState({});
   const [deletingItem, setDeletingItem] = useState(false);
 
   const refreshInventory = async () => {
     setRefreshing(true);
     try {
-      const response = await apiClient.get("/inventory");
+      let endpoint = "/inventory";
+  
+      if (filterType === "borrowed") {
+        endpoint = "/inventory/borrowed";
+      } else if (filterType === "lent") {
+        endpoint = "/inventory/lent";
+      }
+  
+      const response = await apiClient.get(endpoint);
+  
       if (response.data.success) {
-        setInventoryItems(response.data.data);
-        showToast("Inventory refreshed successfully", "success");
+        if (filterType === "borrowed") {
+          setBorrowedItems(response.data.data);
+        } else if (filterType === "lent") {
+          setLentItems(response.data.data);
+        } else {
+          setInventoryItems(response.data.data);
+        }
+        showToast("Resources refreshed successfully", "success");
+      } else {
+        showToast("Error fetching inventory data", "error");
       }
     } catch (error) {
       console.error("Error refreshing inventory:", error);
@@ -247,31 +264,33 @@ const Inventory = () => {
   };
 
   const handleSubmitShare = async () => {
-    setSharingItem(true);
     try {
-      const response = await apiClient.post(
-        `/inventory/${selectedItem.itemId}/share`,
-        {
-          quantity: requestQuantity,
-        }
-      );
-      if (response.data.success) {
-        showToast("Resource shared successfully", "success");
-        setIsShareModalOpen(false);
-        await refreshInventory(); // Refresh after sharing
-      } else {
-        showToast("Failed to share resource", "error");
-      }
-    } catch (error) {
-      console.error("Error sharing item:", error);
-      showToast("Failed to share resource", "error");
+      setSharingItem(true)
+      const response = await apiClient.post(`inventory/${selectedItem.itemId}/share`, {
+        quantity: requestQuantity,
+      })
+
+      // Update the items list with the new data
+      setInventoryItems((prevItems) =>
+        prevItems.map((item) =>
+          item.itemId === response.data.data.itemId ? response.data.data : item,
+        ),
+      )
+
+      // Close the modal and show success message
+      setIsShareModalOpen(false)
+      setSelectedItem(null)
+      setRequestQuantity(1)
+      showToast("Resource shared successfully", "success")
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message, "error")
     } finally {
-      setSharingItem(false);
+      setSharingItem(false)
     }
-  };
+  }
 
   const handleReturnItem = async (item) => {
-    setReturningItem(true);
+    setReturningItems(prev => ({ ...prev, [item.itemId]: true }));
     try {
       const response = await apiClient.post(
         `/inventory/${item.itemId}/return`,
@@ -285,15 +304,19 @@ const Inventory = () => {
           response.data.message || "Item returned successfully",
           "success"
         );
-        // Refresh both borrowed items and main inventory
-        await Promise.all([
-          apiClient.get("/inventory/borrowed").then((response) => {
-            if (response.data.success) {
-              setBorrowedItems(response.data.data);
-            }
-          }),
-          refreshInventory(),
-        ]);
+        
+        // Immediately fetch fresh borrowed items data
+        try {
+          const borrowedResponse = await apiClient.get("/inventory/borrowed");
+          if (borrowedResponse.data.success) {
+            setBorrowedItems(borrowedResponse.data.data);
+          } else {
+            showToast("Failed to refresh borrowed items", "error");
+          }
+        } catch (error) {
+          console.error("Error refreshing borrowed items:", error);
+          showToast("Failed to refresh borrowed items", "error");
+        }
       } else {
         showToast("Failed to return item", "error");
       }
@@ -301,7 +324,7 @@ const Inventory = () => {
       console.error("Error returning item:", error);
       showToast("Failed to return item", "error");
     } finally {
-      setReturningItem(false);
+      setReturningItems(prev => ({ ...prev, [item.itemId]: false }));
     }
   };
 
@@ -680,10 +703,10 @@ const Inventory = () => {
                                 <DeptPermissionButton
                                   featureId={INVENTORY_FEATURES.SHARE}
                                   onClick={() => handleReturnItem(item)}
-                                  disabled={returningItem}
+                                  disabled={returningItems[item.itemId]}
                                   className="p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
                                 >
-                                  {returningItem ? (
+                                  {returningItems[item.itemId] ? (
                                     <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
                                   ) : (
                                     <ArrowLeft className="h-4 w-4" />
@@ -755,9 +778,14 @@ const Inventory = () => {
                               <DeptPermissionButton
                                 featureId={INVENTORY_FEATURES.SHARE}
                                 onClick={() => handleReturnItem(item)}
+                                disabled={returningItems[item.itemId]}
                                 className="p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-full transition-colors"
                               >
-                                <ArrowLeft className="h-4 w-4" />
+                                {returningItems[item.itemId] ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-current"></div>
+                                ) : (
+                                  <ArrowLeft className="h-4 w-4" />
+                                )}
                               </DeptPermissionButton>
                             ) : (
                               filterType !== "lent" &&
@@ -1147,118 +1175,111 @@ const Inventory = () => {
           title="Resource Information"
         >
           {selectedItem && (
-            <div className="space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div className="space-y-6">
+              {/* Header Section */}
+              <div className="bg-gray-900/50 backdrop-blur-sm p-6 -mx-6 -mt-6 border-b border-gray-700">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">
+                    <h3 className="text-xl font-semibold text-white mb-2">
                       {selectedItem.itemName}
                     </h3>
-                    <span className="px-2 py-1 text-xs rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 mt-1 inline-block">
-                      {selectedItem.itemId}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Category
-                    </p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {selectedItem.itemCategory}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Description
-                    </p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {selectedItem.itemDescription ||
-                        "No description available"}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Available
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {selectedItem.availableItems}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Total
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {selectedItem.totalItems}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Sharable
-                      </p>
-                      <p
-                        className={`font-medium ${
-                          selectedItem.isSharable
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-gray-600 dark:text-gray-300"
-                        }`}
-                      >
-                        {selectedItem.isSharable ? "Yes" : "No"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Department
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {selectedItem.deptId}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedItem.isBorrowed && (
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Borrowed From
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {selectedItem.borrowedFromDepartment?.deptName ||
-                          "Unknown"}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Created At
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {new Date(selectedItem.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Last Updated
-                      </p>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {new Date(selectedItem.updatedAt).toLocaleDateString()}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        {selectedItem.itemId}
+                      </span>
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                        selectedItem.isSharable 
+                          ? "bg-green-500/10 text-green-400 border border-green-500/20" 
+                          : "bg-gray-500/10 text-gray-400 border border-gray-500/20"
+                      }`}>
+                        {selectedItem.isSharable ? "Sharable" : "Not Sharable"}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
-                <Button type="button" onClick={() => setIsInfoModalOpen(false)}>
+              {/* Content Section */}
+              <div className="space-y-6 px-1">
+                {/* Category & Description */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-1">Category</h4>
+                    <p className="text-base text-white bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+                      {selectedItem.itemCategory}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-1">Description</h4>
+                    <p className="text-base text-white bg-gray-800/50 p-3 rounded-lg border border-gray-700 min-h-[60px]">
+                      {selectedItem.itemDescription || "No description available"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-gray-400">Available</h4>
+                      <span className="text-lg font-semibold text-blue-400">{selectedItem.availableItems}</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full" 
+                        style={{ width: `${(selectedItem.availableItems / selectedItem.totalItems) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium text-gray-400">Total</h4>
+                      <span className="text-lg font-semibold text-white">{selectedItem.totalItems}</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="bg-gray-500 h-2 rounded-full w-full"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Department Info */}
+                <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-1">Department</h4>
+                      <p className="text-base font-medium text-white">{selectedItem.deptId}</p>
+                    </div>
+                    {selectedItem.isBorrowed && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-1">Borrowed From</h4>
+                        <p className="text-base font-medium text-white">
+                          {selectedItem.borrowedFromDepartment?.deptName || "Unknown"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Timestamps */}
+                <div className="flex items-center justify-between text-sm text-gray-400 pt-2">
+                  <div>
+                    Created: {new Date(selectedItem.createdAt).toLocaleDateString()}
+                  </div>
+                  <div>
+                    Updated: {new Date(selectedItem.updatedAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="flex justify-end space-x-3 pt-4 mt-6 border-t border-gray-700">
+                <Button 
+                  type="button" 
+                  onClick={() => setIsInfoModalOpen(false)}
+                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
                   Close
                 </Button>
               </div>

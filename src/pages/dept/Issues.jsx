@@ -81,8 +81,7 @@ const Issues = () => {
         ),
       )
 
-      showToast(response.data.message, "success")
-      return response.data.updatedStatus
+      return response.data // Return the entire response object
     } catch (err) {
       showToast(err.response?.data?.message || err.message, "error")
       return null
@@ -93,27 +92,41 @@ const Issues = () => {
   const categories = [...new Set(issues.map((issue) => issue.IssueCategory))]
 
   // Filter issues based on search, category, and active tab
-  const filteredIssues = issues.filter((issue) => {
-    const matchesCategory = !category || issue.IssueCategory === category
-    const matchesSearch =
-      !searchQuery ||
-      issue.IssueId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.IssueName.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredIssues = issues
+    .filter((issue) => {
+      const matchesCategory = !category || issue.IssueCategory === category
+      const matchesSearch =
+        !searchQuery ||
+        issue.IssueId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.IssueName.toLowerCase().includes(searchQuery.toLowerCase())
 
-    // Filter based on active tab
-    let matchesTab = true
-    if (activeTab === "resolved") {
-      matchesTab = issue.issueStatus.resolved
-    } else if (activeTab === "pending") {
-      matchesTab = issue.issueStatus.pending && !issue.issueStatus.resolved
-    } else if (activeTab === "working") {
-      matchesTab = issue.issueStatus.working && !issue.issueStatus.resolved
-    } else if (activeTab === "raised") {
-      matchesTab = issue.issueStatus.raised && !issue.issueStatus.in_review && !issue.issueStatus.pending
-    }
+      // Filter based on active tab
+      let matchesTab = true
+      if (activeTab === "resolved") {
+        matchesTab = issue.issueStatus.resolved
+      } else if (activeTab === "pending") {
+        matchesTab = issue.issueStatus.pending && !issue.issueStatus.resolved
+      } else if (activeTab === "working") {
+        matchesTab = issue.issueStatus.working && !issue.issueStatus.resolved
+      } else if (activeTab === "raised") {
+        matchesTab = issue.issueStatus.raised && !issue.issueStatus.in_review && !issue.issueStatus.pending
+      }
 
-    return matchesCategory && matchesSearch && matchesTab
-  })
+      return matchesCategory && matchesSearch && matchesTab
+    })
+    .sort((a, b) => {
+      // Only sort in "all" tab
+      if (activeTab === "all") {
+        // If one is resolved and the other isn't, put resolved at the bottom
+        if (a.issueStatus.resolved && !b.issueStatus.resolved) return 1
+        if (!a.issueStatus.resolved && b.issueStatus.resolved) return -1
+        
+        // If both are resolved or both are unresolved, sort by date (newest first)
+        return new Date(b.createdAt) - new Date(a.createdAt)
+      }
+      // For other tabs, just sort by date
+      return new Date(b.createdAt) - new Date(a.createdAt)
+    })
 
   // Get current status label
   const getCurrentStatusLabel = (issueStatus) => {
@@ -222,26 +235,97 @@ const Issues = () => {
     setSelectedStatus(status)
   }
 
+  // Get available status options based on current status
+  const getAvailableStatusOptions = (currentStatus) => {
+    if (!currentStatus) return []
+
+    // Find the last true status in our flow
+    let lastTrueStatusIndex = -1
+    for (const status of statusHierarchy) {
+      if (currentStatus[status]) {
+        lastTrueStatusIndex = statusHierarchy.indexOf(status)
+      }
+    }
+
+    // Get the next status in the flow
+    const nextStatusIndex = lastTrueStatusIndex + 1
+    const nextStatus = statusHierarchy[nextStatusIndex]
+
+    // If we're at resolved, no more options
+    if (currentStatus.resolved) {
+      return statusHierarchy.map(status => ({
+        value: status,
+        label: status.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        disabled: true
+      }))
+    }
+
+    // If there's a gap in the flow (e.g., pending is false but working is true)
+    // then only allow selecting resolved
+    const hasGapInFlow = statusHierarchy.some((status, index) => {
+      if (index < lastTrueStatusIndex) {
+        return !currentStatus[status]
+      }
+      return false
+    })
+
+    return statusHierarchy.map(status => ({
+      value: status,
+      label: status.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+      disabled: hasGapInFlow ? status !== 'resolved' : status !== nextStatus
+    }))
+  }
+
   // Handle status update
   const handleStatusUpdate = async () => {
     if (!selectedIssue || !selectedStatus || !currentStatus) return
 
-    // Determine which statuses need to be updated based on hierarchy
-    const statusIndex = statusHierarchy.indexOf(selectedStatus)
+    // Get the index of the selected status in the hierarchy
+    const selectedStatusIndex = statusHierarchy.indexOf(selectedStatus)
     const statusUpdate = {}
 
-    // Set the selected status and all lower statuses to true
+    // Set all previous statuses and the selected status to true
     statusHierarchy.forEach((status, index) => {
-      if (index <= statusIndex) {
+      if (index <= selectedStatusIndex) {
         statusUpdate[status] = true
+      } else {
+        statusUpdate[status] = false
       }
     })
 
     // Update the status
-    const updatedStatus = await updateIssueStatus(selectedIssue.IssueId, { [selectedStatus]: true })
-    if (updatedStatus) {
-      setCurrentStatus(updatedStatus)
+    const response = await updateIssueStatus(selectedIssue.IssueId, statusUpdate)
+    if (response) {
+      setCurrentStatus(response.updatedStatus)
       setIsStatusModalOpen(false)
+      showToast(response.message, "success")
+      // Refresh the issues list
+      const fetchIssues = async () => {
+        try {
+          setLoading(true)
+          const response = await apiClient.get("issues/get-issues")
+          setIssues(response.data.issues || [])
+        } catch (err) {
+          showToast(err.response?.data?.message || err.message, "error")
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchIssues()
+    }
+  }
+
+  // Add refresh functionality
+  const handleRefresh = async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.get("issues/get-issues")
+      setIssues(response.data.issues || [])
+      showToast("Issues refreshed successfully", "success")
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message, "error")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -290,6 +374,57 @@ const Issues = () => {
             Issues Management
           </h1>
           <p className="text-gray-600 dark:text-gray-400">Track and resolve department issues</p>
+        </div>
+      </div>
+
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:flex-none md:min-w-[300px]">
+            <input
+              type="text"
+              placeholder="Search issues..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 pl-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" size={18} />
+          </div>
+          <CustomDropdown
+            value={category}
+            onChange={setCategory}
+            options={[
+              { value: "", label: "All Categories" },
+              ...categories.map((cat) => ({ value: cat, label: cat })),
+            ]}
+            className="w-full md:w-auto"
+          />
+        </div>
+
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <Button
+            onClick={handleRefresh}
+            variant="secondary"
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+            disabled={loading}
+          >
+            <svg
+              className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Refresh
+          </Button>
+          
         </div>
       </div>
 
@@ -701,132 +836,119 @@ const Issues = () => {
 
       {/* Status Update Modal */}
       <Modal
-  isOpen={isStatusModalOpen}
-  onClose={() => setIsStatusModalOpen(false)}
-  maxWidth="max-w-md"
-  className="fixed inset-0 z-50 flex items-center justify-center p-4"
->
-  {selectedIssue && currentStatus && (
-    <div className="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
-      {/* Header */}
-      <div className="bg-gray-900 px-6 py-4 border-b border-gray-700">
-        <h2 className="text-xl font-bold text-white text-center">
-          Update Issue Status
-        </h2>
-      </div>
-
-      {/* Content Container */}
-      <div className="p-6 space-y-6">
-        {/* Issue Info */}
-        <div className="flex justify-between items-center bg-gray-900 rounded-lg p-4">
-          <span className="text-sm text-gray-400">Issue ID</span>
-          <span className="text-base font-semibold text-white">
-            {selectedIssue.IssueId}
-          </span>
-        </div>
-
-        {/* Current Status */}
-        <div className="bg-gray-900 rounded-lg p-4">
-          <p className="text-sm font-medium text-gray-400 mb-2">Current Status</p>
-          {(() => {
-            let highestStatus = null;
-            for (let i = statusHierarchy.length - 1; i >= 0; i--) {
-              if (currentStatus[statusHierarchy[i]]) {
-                highestStatus = statusHierarchy[i];
-                break;
-              }
-            }
-
-            if (highestStatus) {
-              const displayStatus = highestStatus
-                .replace("_", " ")
-                .replace(/\b\w/g, (l) => l.toUpperCase());
-
-              return (
-                <div className="flex items-center justify-between bg-gray-800 rounded-md p-3">
-                  <span className="text-sm font-medium uppercase tracking-wide text-blue-300">
-                    {displayStatus}
-                  </span>
-                  <div className="text-blue-400">
-                    {getStatusIcon(displayStatus)}
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div className="text-gray-500 text-sm">
-                No status set
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        maxWidth="max-w-md"
+        title="Update Issue Status"
+      >
+        {selectedIssue && currentStatus && (
+          <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {/* Content Container */}
+            <div className="p-6 space-y-6">
+              {/* Issue Info */}
+              <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Issue ID</span>
+                <span className="text-base font-semibold text-gray-900 dark:text-white">
+                  {selectedIssue.IssueId}
+                </span>
               </div>
-            );
-          })()}
-        </div>
 
-        {/* Status Selection */}
-        <div>
-          <p className="text-sm font-medium text-gray-400 mb-3">
-            Select New Status
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {statusHierarchy.map((status, index) => {
-              const canSelect = !currentStatus[status];
-              const previousStatusesFalse = statusHierarchy
-                .slice(0, index)
-                .some((prev) => !currentStatus[prev]);
-              const isDisabled = !canSelect || previousStatusesFalse;
-              const isSelected = selectedStatus === status;
-
-              return (
-                <button
-                  key={status}
-                  onClick={() => !isDisabled && handleStatusSelection(status)}
-                  disabled={isDisabled}
-                  className={`
-                    py-2 text-xs font-semibold uppercase tracking-wide
-                    rounded-md transition-all duration-200
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
-                    ${
-                      isDisabled
-                        ? "cursor-not-allowed bg-gray-700 text-gray-500"
-                        : isSelected
-                        ? "bg-blue-600 text-white shadow-md hover:bg-blue-700"
-                        : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+              {/* Current Status */}
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Current Status</p>
+                {(() => {
+                  let highestStatus = null;
+                  for (let i = statusHierarchy.length - 1; i >= 0; i--) {
+                    if (currentStatus[statusHierarchy[i]]) {
+                      highestStatus = statusHierarchy[i];
+                      break;
                     }
-                  `}
+                  }
+
+                  if (highestStatus) {
+                    const displayStatus = highestStatus
+                      .replace("_", " ")
+                      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+                    return (
+                      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-md p-3">
+                        <span className="text-sm font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                          {displayStatus}
+                        </span>
+                        <div className="text-blue-500 dark:text-blue-400">
+                          {getStatusIcon(displayStatus)}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="text-gray-500 dark:text-gray-400 text-sm">
+                      No status set
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Status Selection */}
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">
+                  Select New Status
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {statusHierarchy.map((status) => {
+                    const availableOptions = getAvailableStatusOptions(currentStatus);
+                    const option = availableOptions.find(opt => opt.value === status);
+                    const isDisabled = option?.disabled;
+                    const isSelected = selectedStatus === status;
+
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => !isDisabled && handleStatusSelection(status)}
+                        disabled={isDisabled}
+                        className={`
+                          py-2 text-xs font-semibold uppercase tracking-wide
+                          rounded-md transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                          ${
+                            isDisabled
+                              ? "cursor-not-allowed bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                              : isSelected
+                              ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 shadow-sm"
+                              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                          }
+                        `}
+                      >
+                        {status.replace("_", " ")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsStatusModalOpen(false)}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  {status.replace("_", " ")}
-                </button>
-              );
-            })}
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleStatusUpdate}
+                  disabled={!selectedStatus}
+                  className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 dark:hover:bg-blue-500 
+                            disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Update
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-3">
-          <Button
-            variant="secondary"
-            onClick={() => setIsStatusModalOpen(false)}
-            className="px-4 py-2 bg-gray-700 text-gray-200 hover:bg-gray-600
-                       focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleStatusUpdate}
-            disabled={!selectedStatus}
-            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 
-                       disabled:opacity-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Update
-          </Button>
-        </div>
-      </div>
-    </div>
-  )}
-</Modal>
-
-
-
+        )}
+      </Modal>
 
       {/* Image View Modal */}
       <Modal

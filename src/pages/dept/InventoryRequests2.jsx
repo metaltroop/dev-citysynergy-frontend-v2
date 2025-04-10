@@ -28,19 +28,30 @@ const InventoryRequests2 = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState(null)
-  const [actionType, setActionType] = useState(null) // 'approve' or 'reject'
+  const [actionType, setActionType] = useState(null)
   const [sortField, setSortField] = useState("createdAt")
   const [sortDirection, setSortDirection] = useState("desc")
   const [refreshing, setRefreshing] = useState(false)
   const [processingRequest, setProcessingRequest] = useState(false)
+  const [viewMode, setViewMode] = useState("card")
+  const [userDept, setUserDept] = useState(null)
+  const [filterType, setFilterType] = useState("all")
+  const [borrowedItems, setBorrowedItems] = useState([])
+  const [lentItems, setLentItems] = useState([])
+  const [returningItem, setReturningItem] = useState(null)
 
-  // Fetch inventory requests
+  // Fetch inventory requests and set user department from localStorage
   useEffect(() => {
     const fetchRequests = async () => {
       setIsLoading(true)
       try {
-        const response = await apiClient.get("/inventory/requests")
+        // Get user data from localStorage
+        const userData = JSON.parse(localStorage.getItem("userData"))
+        if (userData?.deptId) {
+          setUserDept(userData.deptId)
+        }
 
+        const response = await apiClient.get("/inventory/requests")
         if (response.data.success) {
           setRequests(response.data.data)
         } else {
@@ -96,6 +107,11 @@ const InventoryRequests2 = () => {
     others: sortedRequests.filter((req) => req.requestStatus !== "pending"),
   }
 
+  // Check if user can take action on request
+  const canTakeAction = (request) => {
+    return userDept && request.forDept !== userDept
+  }
+
   const handleApproveReject = (request, action) => {
     setSelectedRequest(request)
     setActionType(action)
@@ -111,8 +127,6 @@ const InventoryRequests2 = () => {
 
       if (response.data.success) {
         showToast(`Request ${actionType === "approved" ? "approved" : "rejected"} successfully`, "success")
-        setIsConfirmModalOpen(false)
-        await refreshRequests() // Refresh after action
       } else {
         showToast(`Failed to ${actionType} request`, "error")
       }
@@ -120,7 +134,12 @@ const InventoryRequests2 = () => {
       console.error(`Error ${actionType}ing request:`, error)
       showToast(`Failed to ${actionType} request`, "error")
     } finally {
+      // Always close modal, reset states, and refresh the list
       setProcessingRequest(false)
+      setIsConfirmModalOpen(false)
+      setSelectedRequest(null)
+      setActionType(null)
+      await refreshRequests() // Refresh list regardless of action outcome
     }
   }
 
@@ -155,10 +174,138 @@ const InventoryRequests2 = () => {
     }
   }
 
+  const refreshInventory = async () => {
+    setRefreshing(true)
+    try {
+      let endpoint = "/inventory"
+      
+      // Use the correct endpoint based on filter type
+      if (filterType === "borrowed") {
+        endpoint = "/inventory/borrowed"
+      } else if (filterType === "lent") {
+        endpoint = "/inventory/lent"
+      }
+
+      const response = await apiClient.get(endpoint)
+      if (response.data.success) {
+        if (filterType === "borrowed") {
+          setBorrowedItems(response.data.data)
+        } else if (filterType === "lent") {
+          setLentItems(response.data.data)
+        } else {
+          setInventoryItems(response.data.data)
+        }
+        showToast("Resources refreshed successfully", "success")
+      }
+    } catch (error) {
+      console.error("Error refreshing resources:", error)
+      showToast("Failed to refresh resources", "error")
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const handleReturnItem = async (item) => {
+    const itemId = item.itemId
+    setReturningItem(itemId) // Track which item is being returned
+    try {
+      const response = await apiClient.post(
+        `/inventory/${itemId}/return`,
+        {
+          quantity: item.borrowedQuantity,
+        }
+      )
+
+      if (response.data.success) {
+        showToast(
+          response.data.message || "Item returned successfully",
+          "success"
+        )
+        // Refresh borrowed items after successful return
+        const borrowedResponse = await apiClient.get("/inventory/borrowed")
+        if (borrowedResponse.data.success) {
+          setBorrowedItems(borrowedResponse.data.data)
+        }
+      } else {
+        showToast("Failed to return item", "error")
+      }
+    } catch (error) {
+      console.error("Error returning item:", error)
+      showToast("Failed to return item", "error")
+    } finally {
+      setReturningItem(null) // Reset returning state
+    }
+  }
+
+  // Card view component
+  const RequestCard = ({ request }) => (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 overflow-hidden">
+      <div className="p-4 border-b dark:border-gray-700">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <h3 className="font-medium text-gray-900 dark:text-white">{request.common_inventory?.itemName}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{request.common_inventory?.itemCategory}</p>
+          </div>
+          <span className={`px-2 py-1 text-xs rounded-md ${getStatusBadgeClass(request.requestStatus)}`}>
+            {request.requestStatus.charAt(0).toUpperCase() + request.requestStatus.slice(1)}
+          </span>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{request.requestId}</p>
+      </div>
+      
+      <div className="p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">From Department</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{request.fromDepartment?.deptName}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">For Department</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{request.forDepartment?.deptName}</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Quantity</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">{request.quantity}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Date</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {new Date(request.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        {request.requestStatus === "pending" && canTakeAction(request) && (
+          <div className="flex justify-end gap-2 pt-2 border-t dark:border-gray-700">
+            <DeptPermissionButton
+              featureId={INVENTORY_FEATURES.MANAGE_REQUESTS}
+              onClick={() => handleApproveReject(request, "approved")}
+              className="flex items-center gap-1 px-3 py-1 text-sm text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-md transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              Approve
+            </DeptPermissionButton>
+            <DeptPermissionButton
+              featureId={INVENTORY_FEATURES.MANAGE_REQUESTS}
+              onClick={() => handleApproveReject(request, "rejected")}
+              className="flex items-center gap-1 px-3 py-1 text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
+            >
+              <X className="h-4 w-4" />
+              Reject
+            </DeptPermissionButton>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <DeptPermissionGuard
       featureId={INVENTORY_FEATURES.MANAGE_REQUESTS}
-      fallback={<div className="p-6 text-center"> You don&apos;t have permission to manage inventory requests.</div>}
+      fallback={<div className="p-6 text-center">You don't have permission to manage inventory requests.</div>}
     >
       <div className="max-w-auto mx-auto p-6">
         <div className="flex items-center mb-6">
@@ -217,166 +364,29 @@ const InventoryRequests2 = () => {
                   <p className="text-gray-500 dark:text-gray-400">No inventory requests found</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="p-4">
                   {/* Pending Requests */}
                   {groupedRequests.pending.length > 0 && (
-                    <>
-                      <div className="px-6 py-3 bg-yellow-50 dark:bg-yellow-900/10 border-b dark:border-gray-700">
-                        <h3 className="font-medium text-yellow-800 dark:text-yellow-400">Pending Requests</h3>
+                    <div className="space-y-4">
+                      <h3 className="font-medium text-yellow-800 dark:text-yellow-400 px-2">Pending Requests</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {groupedRequests.pending.map((request) => (
+                          <RequestCard key={request.requestId} request={request} />
+                        ))}
                       </div>
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Request ID
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Item
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              From Department
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              For Department
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Quantity
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Status
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Date
-                            </th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {groupedRequests.pending.map((request) => (
-                            <tr key={request.requestId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                              <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
-                                {request.requestId}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                <div className="font-medium">{request.common_inventory?.itemName}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {request.common_inventory?.itemCategory}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                {request.fromDepartment?.deptName}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                {request.forDepartment?.deptName}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
-                                {request.quantity}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`px-2 py-1 text-xs rounded-md ${getStatusBadgeClass(request.requestStatus)}`}
-                                >
-                                  {request.requestStatus.charAt(0).toUpperCase() + request.requestStatus.slice(1)}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                {new Date(request.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex justify-end gap-2">
-                                  <DeptPermissionButton
-                                    featureId={INVENTORY_FEATURES.MANAGE_REQUESTS}
-                                    onClick={() => handleApproveReject(request, "approved")}
-                                    className="p-1 text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-full transition-colors"
-                                  >
-                                    <Check className="h-5 w-5" />
-                                  </DeptPermissionButton>
-                                  <DeptPermissionButton
-                                    featureId={INVENTORY_FEATURES.MANAGE_REQUESTS}
-                                    onClick={() => handleApproveReject(request, "rejected")}
-                                    className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
-                                  >
-                                    <X className="h-5 w-5" />
-                                  </DeptPermissionButton>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </>
+                    </div>
                   )}
 
                   {/* Other Requests */}
                   {groupedRequests.others.length > 0 && (
-                    <>
-                      <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                        <h3 className="font-medium text-gray-700 dark:text-gray-300">Previous Requests</h3>
+                    <div className="space-y-4 mt-8">
+                      <h3 className="font-medium text-gray-700 dark:text-gray-300 px-2">Previous Requests</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {groupedRequests.others.map((request) => (
+                          <RequestCard key={request.requestId} request={request} />
+                        ))}
                       </div>
-                      <table className="min-w-full">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Request ID
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Item
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              From Department
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              For Department
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Quantity
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Status
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              Date
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {groupedRequests.others.map((request) => (
-                            <tr key={request.requestId} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                              <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
-                                {request.requestId}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                <div className="font-medium">{request.common_inventory?.itemName}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {request.common_inventory?.itemCategory}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                {request.fromDepartment?.deptName}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                {request.forDepartment?.deptName}
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
-                                {request.quantity}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span
-                                  className={`px-2 py-1 text-xs rounded-md ${getStatusBadgeClass(request.requestStatus)}`}
-                                >
-                                  {request.requestStatus.charAt(0).toUpperCase() + request.requestStatus.slice(1)}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-300">
-                                {new Date(request.createdAt).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
@@ -387,7 +397,11 @@ const InventoryRequests2 = () => {
         {/* Confirmation Modal */}
         <Modal
           isOpen={isConfirmModalOpen}
-          onClose={() => setIsConfirmModalOpen(false)}
+          onClose={() => {
+            setIsConfirmModalOpen(false)
+            setSelectedRequest(null)
+            setActionType(null)
+          }}
           title={actionType === "approved" ? "Approve Request" : "Reject Request"}
         >
           {selectedRequest && (
