@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Outlet, useLocation } from "react-router-dom"
+import { Outlet } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import DevSidebar from "../components/dev/Sidebar"
 import DeptSidebar from "../components/dept/Sidebar"
@@ -11,7 +11,6 @@ const MainLayout = () => {
   const [isMobile, setIsMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const { user } = useAuth()
-  const location = useLocation()
   
   // Initialize darkMode based on user type
   const [darkMode, setDarkMode] = useState(() => {

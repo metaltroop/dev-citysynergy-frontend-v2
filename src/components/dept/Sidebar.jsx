@@ -35,7 +35,6 @@ const navItems = [
   { path: "/dashboard/dept/users", label: "Users", icon: Users, featureId: "FEAT_USER_MGMT" },
   { path: "/dashboard/dept/roles", label: "Roles", icon: Shield, featureId: "FEAT_ROLE_MGMT" },
   { path: "/dashboard/dept/features", label: "Features", icon: Settings, featureId: "FEAT_DEPT_MGMT" },
-  { path: "/dashboard/dept/permissions-example", label: "Permissions Example", icon: Shield, featureId: null }, // Example page is accessible to everyone
 ]
 
 const quickLinks = [{ label: "Logout", icon: LogOut }]

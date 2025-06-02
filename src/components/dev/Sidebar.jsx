@@ -28,7 +28,6 @@ const navItems = [
   { path: "/dashboard/dev/departments", label: "Departments", icon: FolderTree, featureId: "FEAT002" },
   { path: "/dashboard/dev/roles", label: "Roles", icon: Shield, featureId: "FEAT003" },
   { path: "/dashboard/dev/features", label: "Features", icon: Settings, featureId: "FEAT004" },
-  { path: "/dashboard/dev/clashes", label: "Clashes", icon: AlertTriangle, featureId: "FEAT005" },
 ]
 
 const quickLinks = [{ label: "Logout", icon: LogOut }]
@@ -67,6 +66,8 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
   const handleLogout = () => {
     logout()
     handleLinkClick()
+    localStorage.removeItem("profileImage") 
+    localStorage.removeItem("viewMode")
   }
 
 
@@ -295,7 +296,9 @@ const Sidebar = ({ isMobile, isCollapsed, isOpen, onToggleCollapse, darkMode, to
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{user?.name || "User"}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{userRoleName}</p>
+             <p className="text-xs text-gray-500 dark:text-gray-400">
+  {JSON.parse(localStorage.permissions)?.roles[0]?.roleName || "role"}
+</p>
             </div>
           </div>
         </div>

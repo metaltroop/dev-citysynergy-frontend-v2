@@ -65,9 +65,9 @@ export const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      {/* Left side - Branding Panel */}
-      <div className="md:w-1/2 p-8 flex flex-col justify-center items-center bg-gradient-to-br from-blue-600 to-indigo-800 text-white">
+    <div className="h-svh md:min-h-screen  scroll-disable flex flex-col md:flex-row bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      {/* Left side - Branding Panel (Hidden on small screens, flex on medium and up) */}
+      <div className="hidden md:flex md:w-1/2 p-8 flex-col justify-center items-center bg-gradient-to-br from-blue-600 to-indigo-800 text-white">
         <div className="max-w-md mx-auto py-12 px-4 text-center">
           <div className="mb-10">
             <h1 className="text-5xl font-bold mb-6">City Synergy</h1>
@@ -95,9 +95,11 @@ export const Login = () => {
         </div>
       </div>
 
-      {/* Right side - Login Form */}
-      <div className="md:w-1/2 p-6 flex items-center justify-center">
-        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 relative">
+      {/* Right side - Login Form (Takes full width on small screens, half on medium and up) */}
+     
+      <div className="w-full h-screen md:h-auto  md:w-1/2 md:px-4 md:p-6 md:flex items-center  justify-center"> 
+        {/* Removed max-w-md for mobile, added md:max-w-md for larger screens */}
+        <div className="w-full h-svh md:h-auto  md:max-w-md bg-white dark:bg-gray-800 md:rounded-2xl md:shadow-xl p-8 relative">
           <button
             onClick={toggleDarkMode}
             className="absolute top-6 right-6 p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -134,9 +136,6 @@ export const Login = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Password
                 </label>
-                <a href="#" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                  Forgot password?
-                </a>
               </div>
               <div className="relative">
                 <input
@@ -193,15 +192,6 @@ export const Login = () => {
               Sign in to account
             </button>
           </form>
-
-          <div className="mt-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Need help?{" "}
-              <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                Contact support
-              </a>
-            </p>
-          </div>
         </div>
       </div>
     </div>

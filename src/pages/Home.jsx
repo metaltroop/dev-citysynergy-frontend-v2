@@ -1309,7 +1309,6 @@ export const Home = () => {
 };
 
 Home.PropTypes = {
-  // Define prop types here
   user: PropTypes.object,
   departments: PropTypes.array,
   issueCategories: PropTypes.array,

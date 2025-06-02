@@ -3,11 +3,15 @@
 import { createContext, useContext, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import apiClient from "../utils/apiClient"
+import { useLoading } from "../context/LoadingContext"
+import { useToast } from "../context/ToastContext"
 
 const AuthContext = createContext(null)
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
+  const { setIsLoading } = useLoading()
+  const { showToast } = useToast()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [permissions, setPermissions] = useState(null)
   const navigate = useNavigate()
@@ -78,15 +82,35 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const logout = () => {
-    // Clear localStorage
-    localStorage.removeItem("token")
-    //remove cookie
+  const logout = async () => {
+    try {
+      setIsLoading(true)
+      await apiClient.post("/auth/logout")
+      localStorage.removeItem("token")
+      localStorage.removeItem("userData")
+      localStorage.removeItem("permissions")
+      setUser(null)
+      setPermissions(null)
+      setIsAuthenticated(false)
+      navigate("/login")
+      showToast("Logged out successfully", "success")
+
+    } catch (error) {
+      console.error("Logout error:", error)
+      showToast("Failed to log out", "error")
+      throw error
+    } finally {
+      setIsLoading(false)
+      // Reset user and permissions state
+      setUser(null)
+      setPermissions(null)
+      setIsAuthenticated(false)
+      if (window.location.pathname !== "/login") {
+        navigate("/login")
+      }
+    }
+    }
   
-    
-    setIsAuthenticated(false)
-    navigate("/login")
-  }
 
   const verifyOtp = async (email, otp, newPassword) => {
     try {

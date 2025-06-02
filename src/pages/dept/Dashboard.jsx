@@ -1,19 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileText, AlertTriangle, AlertCircle, Package, Users } from "lucide-react"
 import Card from "../../components/dept/Card"
+import apiClient from "../../utils/apiClient"
 
 const Dashboard = () => {
-  // This would come from an API in a real application
-  const stats = {
-    totalUsers: 125,
-    totalTenders: 48,
-    activeTenders: 12,
-    totalClashes: 8,
-    totalInventory: 356,
-    resolvedIssues: 24,
-    // Example data for charts
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalTenders: 0,
+    activeTenders: 0,
+    totalClashes: 0,
+    totalInventory: 0,
+    unresolvedIssues: 0,
+    // Keep the chart data static for now
     tendersByMonth: [
       { month: "Jan", count: 5 },
       { month: "Feb", count: 8 },
@@ -30,9 +30,33 @@ const Dashboard = () => {
       resolved: 23,
       unresolved: 8,
     },
-  }
+  })
 
   const [activeTab, setActiveTab] = useState("analytics")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const fetchOverviewData = async () => {
+      try {
+        const response = await apiClient.get('/deptactivity/overview')
+        if (response.data.success) {
+          setStats(prevStats => ({
+            ...prevStats,
+            ...response.data.data,
+            resolvedIssues: response.data.data.totalClashes - response.data.data.unresolvedIssues
+          }))
+        }
+      } catch (err) {
+        setError('Failed to fetch overview data')
+        console.error('Error fetching overview data:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOverviewData()
+  }, [])
 
   // Calculate percentage for pie chart
   const totalTenders =
@@ -72,32 +96,40 @@ const Dashboard = () => {
 
       {activeTab === "overview" && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          <Card title="Total Users" value={stats.totalUsers} icon={<Users size={24} className="text-blue-500" />} />
-          <Card
-            title="Total Tenders"
-            value={stats.totalTenders}
-            icon={<FileText size={24} className="text-green-500" />}
-          />
-          <Card
-            title="Active Tenders"
-            value={stats.activeTenders}
-            icon={<FileText size={24} className="text-yellow-500" />}
-          />
-          <Card
-            title="Total Clashes"
-            value={stats.totalClashes}
-            icon={<AlertTriangle size={24} className="text-red-500" />}
-          />
-          <Card
-            title="Total Items in Inventory"
-            value={stats.totalInventory}
-            icon={<Package size={24} className="text-purple-500" />}
-          />
-          <Card
-            title="Resolved Issues"
-            value={stats.resolvedIssues}
-            icon={<AlertCircle size={24} className="text-teal-500" />}
-          />
+          {loading ? (
+            <div className="col-span-full text-center">Loading...</div>
+          ) : error ? (
+            <div className="col-span-full text-center text-red-500">{error}</div>
+          ) : (
+            <>
+              <Card title="Total Users" value={stats.totalUsers} icon={<Users size={24} className="text-blue-500" />} />
+              <Card
+                title="Total Tenders"
+                value={stats.totalTenders}
+                icon={<FileText size={24} className="text-green-500" />}
+              />
+              <Card
+                title="Active Tenders"
+                value={stats.activeTenders}
+                icon={<FileText size={24} className="text-yellow-500" />}
+              />
+              <Card
+                title="Total Clashes"
+                value={stats.totalClashes}
+                icon={<AlertTriangle size={24} className="text-red-500" />}
+              />
+              <Card
+                title="Total Items in Inventory"
+                value={stats.totalInventory}
+                icon={<Package size={24} className="text-purple-500" />}
+              />
+              <Card
+                title="Unresolved Issues"
+                value={stats.unresolvedIssues}
+                icon={<AlertCircle size={24} className="text-teal-500" />}
+              />
+            </>
+          )}
         </div>
       )}
 
