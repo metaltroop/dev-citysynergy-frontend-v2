@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, AlertTriangle, AlertCircle, Package, Users } from "lucide-react"
+import { FileText, AlertTriangle, AlertCircle, Package, Users, Clock, User, Activity } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import Card from "../../components/dept/Card"
 import apiClient from "../../utils/apiClient"
 
@@ -13,23 +14,17 @@ const Dashboard = () => {
     totalClashes: 0,
     totalInventory: 0,
     unresolvedIssues: 0,
-    // Keep the chart data static for now
-    tendersByMonth: [
-      { month: "Jan", count: 5 },
-      { month: "Feb", count: 8 },
-      { month: "Mar", count: 12 },
-      { month: "Apr", count: 7 },
-      { month: "May", count: 16 },
-    ],
-    statusDistribution: {
-      active: 12,
-      completed: 25,
-      pending: 11,
-    },
+  })
+
+  const [analyticsData, setAnalyticsData] = useState({
+    tendersByMonth: [],
+    inventoryDistribution: [],
     clashResolution: {
-      resolved: 23,
-      unresolved: 8,
+      resolved: 0,
+      unresolved: 0,
+      percentResolved: 0
     },
+    recentActivity: []
   })
 
   const [activeTab, setActiveTab] = useState("analytics")
@@ -58,21 +53,97 @@ const Dashboard = () => {
     fetchOverviewData()
   }, [])
 
-  // Calculate percentage for pie chart
-  const totalTenders =
-    stats.statusDistribution.active + stats.statusDistribution.completed + stats.statusDistribution.pending
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        // Fetch tenders by month
+        const tendersResponse = await apiClient.get('/deptactivity/tenders-by-month')
+        let tendersByMonth = []
+        if (tendersResponse.data.success) {
+          tendersByMonth = Object.entries(tendersResponse.data.data).map(([month, count]) => ({
+            month,
+            count
+          }))
+        }
 
-  const activePercentage = Math.round((stats.statusDistribution.active / totalTenders) * 100)
-  const completedPercentage = Math.round((stats.statusDistribution.completed / totalTenders) * 100)
-  const pendingPercentage = Math.round((stats.statusDistribution.pending / totalTenders) * 100)
+        // Fetch inventory distribution
+        const inventoryResponse = await apiClient.get('/deptactivity/inventory-category-distribution')
+        let inventoryDistribution = []
+        if (inventoryResponse.data.success) {
+          inventoryDistribution = inventoryResponse.data.data.map(item => ({
+            name: item.itemCategory,
+            value: item.count
+          }))
+        }
 
-  // For clash resolution pie chart
-  const totalClashes = stats.clashResolution.resolved + stats.clashResolution.unresolved
-  const resolvedPercentage = Math.round((stats.clashResolution.resolved / totalClashes) * 100)
-  const unresolvedPercentage = Math.round((stats.clashResolution.unresolved / totalClashes) * 100)
+        // Fetch clash resolution
+        const clashResponse = await apiClient.get('/deptactivity/clash-resolution')
+        let clashResolution = {
+          resolved: 0,
+          unresolved: 0,
+          percentResolved: 0
+        }
+        if (clashResponse.data.success) {
+          clashResolution = clashResponse.data.data
+        }
 
-  // Find max value for the bar chart
-  const maxTenderCount = Math.max(...stats.tendersByMonth.map((item) => item.count))
+        // Fetch recent activity
+        const activityResponse = await apiClient.get('/deptactivity/recent-activity')
+        let recentActivity = []
+        if (activityResponse.data.success) {
+          recentActivity = activityResponse.data.data.slice(0, 5) // Get latest 5 activities
+        }
+
+        setAnalyticsData({
+          tendersByMonth,
+          inventoryDistribution,
+          clashResolution,
+          recentActivity
+        })
+      } catch (err) {
+        console.error('Error fetching analytics data:', err)
+      }
+    }
+
+    if (activeTab === "analytics") {
+      fetchAnalyticsData()
+    }
+  }, [activeTab])
+
+  // Helper function to format time ago
+  const formatTimeAgo = (dateString) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) return "Just now"
+    if (diffInHours < 24) return `${diffInHours} hours ago`
+    
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays === 1) return "Yesterday"
+    if (diffInDays < 7) return `${diffInDays} days ago`
+    
+    return date.toLocaleDateString()
+  }
+
+  // Helper function to get activity icon and color
+  const getActivityIcon = (activityType) => {
+    switch (activityType) {
+      case 'LOGIN':
+        return { icon: <User size={12} />, color: 'bg-blue-500' }
+      case 'TENDER':
+        return { icon: <FileText size={12} />, color: 'bg-green-500' }
+      case 'CLASH':
+        return { icon: <AlertTriangle size={12} />, color: 'bg-red-500' }
+      case 'INVENTORY':
+        return { icon: <Package size={12} />, color: 'bg-purple-500' }
+      default:
+        return { icon: <Activity size={12} />, color: 'bg-gray-500' }
+    }
+  }
+
+  // Colors for pie charts
+  const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16']
 
   return (
     <div className="animate-fadeIn p-2 md:p-6 overflow-x-hidden">
@@ -134,121 +205,139 @@ const Dashboard = () => {
       )}
 
       {activeTab === "analytics" && (
-        <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6">
-          {/* Bar chart for tenders by month */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          {/* Bar chart for tenders by month using Recharts */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 md:p-6">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Tenders by Month</h2>
-            <div className="h-48 sm:h-64 flex items-end space-x-1 md:space-x-2">
-              {stats.tendersByMonth.map((item, index) => (
-                <div key={index} className="flex flex-col items-center flex-1">
-                  <div
-                    className="w-full bg-sky-500 dark:bg-sky-600 rounded-t-md transition-all duration-500 ease-out hover:bg-sky-600 dark:hover:bg-sky-700"
-                    style={{ height: `${(item.count / maxTenderCount) * 100}%`, minHeight: "10%" }}
-                  ></div>
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-2">{item.month}</div>
-                  <div className="text-xs sm:text-sm font-semibold dark:text-gray-300">{item.count}</div>
-                </div>
-              ))}
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analyticsData.tendersByMonth} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fill: 'currentColor', fontSize: 12 }}
+                    className="text-gray-600 dark:text-gray-400"
+                  />
+                  <YAxis 
+                    tick={{ fill: 'currentColor', fontSize: 12 }}
+                    className="text-gray-600 dark:text-gray-400"
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'var(--tooltip-bg, #ffffff)', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      color: 'var(--tooltip-text, #374151)'
+                    }}
+                  />
+                  <Bar dataKey="count" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Pie chart for tender status distribution */}
+          {/* Pie chart for inventory category distribution using Recharts */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 md:p-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Tender Status Distribution</h2>
-            <div className="flex justify-center mb-4">
-              <svg width="150" height="150" viewBox="0 0 100 100" className="max-w-full">
-                {/* Completed segment */}
-                <circle
-                  r="25"
-                  cx="50"
-                  cy="50"
-                  fill="transparent"
-                  stroke="#10b981"
-                  strokeWidth="50"
-                  strokeDasharray={`${completedPercentage} ${100 - completedPercentage}`}
-                  transform="rotate(-90 50 50)"
-                />
-                {/* Active segment */}
-                <circle
-                  r="25"
-                  cx="50"
-                  cy="50"
-                  fill="transparent"
-                  stroke="#0ea5e9"
-                  strokeWidth="50"
-                  strokeDasharray={`${activePercentage} ${100 - activePercentage}`}
-                  strokeDashoffset={`${-completedPercentage}`}
-                  transform="rotate(-90 50 50)"
-                />
-                {/* Pending segment */}
-                <circle
-                  r="25"
-                  cx="50"
-                  cy="50"
-                  fill="transparent"
-                  stroke="#f59e0b"
-                  strokeWidth="50"
-                  strokeDasharray={`${pendingPercentage} ${100 - pendingPercentage}`}
-                  strokeDashoffset={`${-(completedPercentage + activePercentage)}`}
-                  transform="rotate(-90 50 50)"
-                />
-                {/* Inner white circle to create donut */}
-                <circle r="15" cx="50" cy="50" fill="white" className="dark:fill-gray-800" />
-              </svg>
-            </div>
-            <div className="flex flex-wrap justify-center space-x-2 sm:space-x-6">
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-sky-500 mr-2"></div>
-                <span className="text-xs sm:text-sm dark:text-gray-300">Active</span>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Inventory Category Distribution</h2>
+            {analyticsData.inventoryDistribution.length > 0 ? (
+              <div className="h-64 flex flex-col">
+                <div className="flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analyticsData.inventoryDistribution}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {analyticsData.inventoryDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'var(--tooltip-bg, #ffffff)', 
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          color: 'var(--tooltip-text, #374151)'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 mt-2">
+                  {analyticsData.inventoryDistribution.map((entry, index) => (
+                    <div key={entry.name} className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      ></div>
+                      <span className="text-xs sm:text-sm dark:text-gray-300">{entry.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-emerald-500 mr-2"></div>
-                <span className="text-xs sm:text-sm dark:text-gray-300">Completed</span>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                No inventory data available
               </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-amber-500 mr-2"></div>
-                <span className="text-xs sm:text-sm dark:text-gray-300">Pending</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Clash Resolution Distribution */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 md:p-6">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Clash Resolution</h2>
             <div className="flex flex-col sm:flex-row items-center justify-center">
-              <div className="relative w-32 h-32 sm:w-40 sm:h-40">
-                <svg viewBox="0 0 100 100" className="w-full h-full">
-                  <circle cx="50" cy="50" r="45" fill="#f3f4f6" className="dark:fill-gray-700" />
+              <div className="relative w-32 h-32 sm:w-40 sm:h-40 mb-4 sm:mb-0">
+                <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                  {/* Background circle */}
+                  <circle 
+                    cx="50" 
+                    cy="50" 
+                    r="40" 
+                    fill="transparent" 
+                    stroke="#e5e7eb" 
+                    strokeWidth="8"
+                    className="dark:stroke-gray-600"
+                  />
+                  {/* Progress circle */}
                   <circle
                     cx="50"
                     cy="50"
-                    r="45"
+                    r="40"
                     fill="transparent"
                     stroke="#10b981"
-                    strokeWidth="10"
-                    strokeDasharray={`${resolvedPercentage * 2.83} ${unresolvedPercentage * 2.83}`}
-                    transform="rotate(-90 50 50)"
+                    strokeWidth="8"
+                    strokeDasharray={`${analyticsData.clashResolution.percentResolved * 2.51} ${(100 - analyticsData.clashResolution.percentResolved) * 2.51}`}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl sm:text-3xl font-bold text-emerald-500">{resolvedPercentage}%</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-emerald-500">
+                    {analyticsData.clashResolution.percentResolved}%
+                  </span>
                   <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Resolved</span>
                 </div>
               </div>
-              <div className="mt-4 sm:mt-0 sm:ml-6">
-                <div className="mb-2">
-                  <div className="flex items-center">
+              <div className="sm:ml-6 text-center sm:text-left">
+                <div className="mb-3">
+                  <div className="flex items-center justify-center sm:justify-start">
                     <div className="w-3 h-3 rounded-full bg-emerald-500 mr-2"></div>
-                    <span className="text-xs sm:text-sm dark:text-gray-300">
-                      Resolved: {stats.clashResolution.resolved}
+                    <span className="text-sm dark:text-gray-300">
+                      Resolved: {analyticsData.clashResolution.resolved}
                     </span>
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-gray-600 mr-2"></div>
-                    <span className="text-xs sm:text-sm dark:text-gray-300">
-                      Unresolved: {stats.clashResolution.unresolved}
+                  <div className="flex items-center justify-center sm:justify-start">
+                    <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 mr-2"></div>
+                    <span className="text-sm dark:text-gray-300">
+                      Unresolved: {analyticsData.clashResolution.unresolved}
                     </span>
                   </div>
                 </div>
@@ -258,49 +347,44 @@ const Dashboard = () => {
 
           {/* Recent Activity Timeline */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 md:p-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Recent Activity</h2>
-            <div className="space-y-4 overflow-hidden">
-              <div className="flex">
-                <div className="flex flex-col items-center mr-4">
-                  <div className="w-3 h-3 rounded-full bg-sky-500"></div>
-                  <div className="w-0.5 h-full bg-gray-200 dark:bg-gray-700"></div>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Recent User Activity</h2>
+            <div className="space-y-3 overflow-hidden max-h-80 overflow-y-auto">
+              {analyticsData.recentActivity.length > 0 ? (
+                analyticsData.recentActivity.map((activity, index) => {
+                  const { icon, color } = getActivityIcon(activity.activityType)
+                  return (
+                    <div key={activity.logId} className="flex items-start">
+                      <div className="flex flex-col items-center mr-3 flex-shrink-0">
+                        <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white`}>
+                          {icon}
+                        </div>
+                        {index < analyticsData.recentActivity.length - 1 && (
+                          <div className="w-0.5 h-6 bg-gray-200 dark:bg-gray-700 mt-2"></div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 pb-2">
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 leading-tight">
+                          {activity.description}
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatTimeAgo(activity.createdAt)}
+                          </p>
+                          {activity.ipAddress && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 sm:mt-0">
+                              IP: {activity.ipAddress}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                  No recent activity
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium truncate dark:text-gray-300">New tender approved</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex">
-                <div className="flex flex-col items-center mr-4">
-                  <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                  <div className="w-0.5 h-full bg-gray-200 dark:bg-gray-700"></div>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium truncate dark:text-gray-300">Clash C002 reported</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Yesterday</p>
-                </div>
-              </div>
-              <div className="flex">
-                <div className="flex flex-col items-center mr-4">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                  <div className="w-0.5 h-full bg-gray-200 dark:bg-gray-700"></div>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium truncate dark:text-gray-300">Issue #45 resolved</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">2 days ago</p>
-                </div>
-              </div>
-              <div className="flex">
-                <div className="flex flex-col items-center mr-4">
-                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-medium truncate dark:text-gray-300">
-                    New inventory items added
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">3 days ago</p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -310,4 +394,3 @@ const Dashboard = () => {
 }
 
 export default Dashboard
-

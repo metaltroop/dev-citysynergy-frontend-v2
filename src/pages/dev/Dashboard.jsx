@@ -346,7 +346,7 @@ export default function Dashboard() {
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Activity Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white  dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
             {/* System Activity Dropdown */}
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-semibold text-gray-800 dark:text-white">System Activity</h3>
