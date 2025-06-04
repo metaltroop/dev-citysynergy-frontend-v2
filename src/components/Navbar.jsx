@@ -92,11 +92,11 @@ const Navbar = () => {
     >
       <div className="max-w-10xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-2">
-          <div className="flex items-center space-x-2">
+          <div className="flex  items-center space-x-2">
             <img 
-              src="citylogo.png" 
+              src="gclm.png" 
               alt="Logo" 
-              className="w-16 h-14 xs:w-20 xs:h-16 sm:w-24 sm:h-20" 
+              className="w-16 h-12 p-2  xs:w-20 xs:h-16 sm:w-24 sm:h-20" 
             />
             <h1 className={`text-xl xs:text-2xl font-semibold cursor-pointer ${
               isSticky ? "text-gray-800 dark:text-white" : "text-white"

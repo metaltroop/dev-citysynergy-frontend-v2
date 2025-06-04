@@ -35,7 +35,8 @@ export const Home = () => {
 
   // State for navbar and sections
   const [sticky, setSticky] = useState(false);
-  const [pincode, setPincode] = useState("");
+  // Renamed pincode to selectedPincode for AsyncSelect compatibility
+  const [selectedPincode, setSelectedPincode] = useState(null);
   const [selectedArea, setSelectedArea] = useState(null);
   const [selectedLocalArea, setSelectedLocalArea] = useState(null);
   const [tenders, setTenders] = useState([]);
@@ -83,6 +84,11 @@ export const Home = () => {
     { value: "other", label: "Other" },
   ];
 
+  /**
+   * Loads departments for the issue reporting form.
+   * @param {string} inputValue - The current input value for filtering departments.
+   * @returns {Promise<Array<{value: string, label: string, isDisabled?: boolean}>>} A promise that resolves to an array of department options.
+   */
   const loadDepartments = (inputValue) => {
     return new Promise((resolve) => {
       // Don't allow numbers
@@ -135,6 +141,11 @@ export const Home = () => {
     fetchDepartments();
   }, []);
 
+  /**
+   * Loads pincodes for the issue reporting form.
+   * @param {string} inputValue - The current input value for filtering pincodes.
+   * @returns {Promise<Array<{value: string, label: string}>>} A promise that resolves to an array of pincode options.
+   */
   const loadPincodes = (inputValue) => {
     return new Promise((resolve) => {
       if (!inputValue) {
@@ -158,6 +169,11 @@ export const Home = () => {
     });
   };
 
+  /**
+   * Loads localities for the issue reporting form.
+   * @param {string} inputValue - The current input value for filtering localities.
+   * @returns {Promise<Array<{value: string, label: string}>>} A promise that resolves to an array of locality options.
+   */
   const loadLocalities = (inputValue) => {
     return new Promise((resolve) => {
       if (!inputValue) {
@@ -286,27 +302,62 @@ export const Home = () => {
     navigate("/dashboard");
   };
 
+  /**
+   * Loads pincodes for the "Discover Tenders" section.
+   * @param {string} inputValue - The current input value for filtering pincodes.
+   * @returns {Promise<Array<{value: string, label: string}>>} A promise that resolves to an array of pincode options.
+   */
+  const loadTenderPincodes = async (inputValue) => {
+    if (!inputValue) {
+      return [];
+    }
+    try {
+      // API: hpgsearch/pincodes?query=422
+      const response = await apiClient.get(
+        `/hpgsearch/pincodes?query=${inputValue}`
+      );
+      if (response.data && response.data.success) {
+        return response.data.data.map((pincode) => ({
+          value: pincode,
+          label: pincode,
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching tender pincodes:", error);
+      return [];
+    }
+  };
+
+  /**
+   * Fetches areas based on the selected pincode for the "Discover Tenders" section.
+   * @param {string} inputValue - The current input value for filtering areas.
+   * @returns {Promise<Array<{value: string, label: string}>>} A promise that resolves to an array of area options.
+   */
   const fetchAreas = async (inputValue) => {
-    if (!pincode) return [];
+    if (!selectedPincode) {
+      return [];
+    }
     setError(null);
     try {
       setIsLoading(true);
-      const response = await apiClient.post(`/tender/tenders/filter`, {
-        search_by: "pincode",
-        search_term: pincode,
-        filter_columns: ["area_name"],
-      });
+      // API: hpgsearch/areas?pincode=422100
+      const response = await apiClient.get(
+        `/hpgsearch/areas?pincode=${selectedPincode.value}`
+      );
 
-      // Get unique areas
-      const areas = [...new Set(response.data.map((item) => item.area_name))];
-      return areas
-        .filter((area) =>
-          area?.toLowerCase().includes(inputValue?.toLowerCase())
-        )
-        .map((area) => ({
-          value: area,
-          label: area,
-        }));
+      if (response.data && response.data.success) {
+        const areas = response.data.data;
+        return areas
+          .filter((area) =>
+            area?.toLowerCase().includes(inputValue?.toLowerCase())
+          )
+          .map((area) => ({
+            value: area,
+            label: area,
+          }));
+      }
+      return [];
     } catch (error) {
       console.error("Error fetching areas:", error);
       setError("Failed to fetch areas. Please try again.");
@@ -316,29 +367,37 @@ export const Home = () => {
     }
   };
 
+  /**
+   * Fetches local areas based on the selected pincode and area for the "Discover Tenders" section.
+   * @param {string} inputValue - The current input value for filtering local areas.
+   * @returns {Promise<Array<{value: string, label: string}>>} A promise that resolves to an array of local area options.
+   */
   const fetchLocalAreas = async (inputValue) => {
-    if (!pincode || !selectedArea) return [];
+    if (!selectedPincode || !selectedArea) {
+      return [];
+    }
     setError(null);
     try {
       setIsLoading(true);
-      const response = await apiClient.post(`/tender/tenders/filter`, {
-        search_by: "area_name",
-        search_term: selectedArea.value,
-        filter_columns: ["local_area_name"],
-      });
+      // API: /hpgsearch/local-areas?pincode=422100&area=West%20Zone&query=j
+      const response = await apiClient.get(
+        `/hpgsearch/local-areas?pincode=${
+          selectedPincode.value
+        }&area=${encodeURIComponent(selectedArea.value)}&query=${inputValue}`
+      );
 
-      // Get unique local areas
-      const localAreas = [
-        ...new Set(response.data.map((item) => item.local_area_name)),
-      ];
-      return localAreas
-        .filter((area) =>
-          area?.toLowerCase().includes(inputValue?.toLowerCase())
-        )
-        .map((area) => ({
-          value: area,
-          label: area,
-        }));
+      if (response.data && response.data.success) {
+        const localAreas = response.data.data;
+        return localAreas
+          .filter((area) =>
+            area?.toLowerCase().includes(inputValue?.toLowerCase())
+          )
+          .map((area) => ({
+            value: area,
+            label: area,
+          }));
+      }
+      return [];
     } catch (error) {
       console.error("Error fetching local areas:", error);
       setError("Failed to fetch local areas. Please try again.");
@@ -348,9 +407,13 @@ export const Home = () => {
     }
   };
 
+  /**
+   * Handles the search for tenders based on selected pincode, area, and local area.
+   * @param {Event} e - The form submission event.
+   */
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!pincode || !selectedArea || !selectedLocalArea) {
+    if (!selectedPincode || !selectedArea || !selectedLocalArea) {
       setError("Please fill in all fields");
       return;
     }
@@ -359,28 +422,44 @@ export const Home = () => {
     setError(null);
     try {
       setIsLoading(true);
-      const response = await apiClient.post(`/tender/tenders/filter`, {
-        search_by: "pincode",
-        search_term: pincode,
-        filter_columns: ["*"],
-      });
-
-      const filteredTenders = response.data.filter(
-        (tender) =>
-          tender.area_name === selectedArea.value &&
-          tender.local_area_name === selectedLocalArea.value &&
-          tender.Cancel_Accept_Tenders === "Accepted"
+      // API: /hpgsearch/search?pincode=422100&area=West%20Zone&localArea=JailRoad
+      const response = await apiClient.get(
+        `/hpgsearch/search?pincode=${
+          selectedPincode.value
+        }&area=${encodeURIComponent(
+          selectedArea.value
+        )}&localArea=${encodeURIComponent(selectedLocalArea.value)}`
       );
 
-      setTenders(filteredTenders);
+      if (response.data && response.data.success) {
+        // Assuming the response data directly contains the tenders array
+        setTenders(response.data.data);
+      } else {
+        setTenders([]);
+      }
     } catch (error) {
       console.error("Error fetching tenders:", error);
       setError("Failed to fetch tenders. Please try again.");
       setTenders([]);
     } finally {
       setIsLoading(false);
+      setLoading(false); // Set loading to false here as well
     }
   };
+
+  // Effect to clear dependent dropdowns when parent dropdown changes
+  useEffect(() => {
+    if (!selectedPincode) {
+      setSelectedArea(null);
+      setSelectedLocalArea(null);
+    }
+  }, [selectedPincode]);
+
+  useEffect(() => {
+    if (!selectedArea) {
+      setSelectedLocalArea(null);
+    }
+  }, [selectedArea]);
 
   const handleIssueFormChange = (e) => {
     const { name, value } = e.target;
@@ -562,7 +641,9 @@ export const Home = () => {
 
     setIsCheckingStatus(true);
     try {
-      const response = await apiClient.get(`issues/get-issue-details/${issueId}`);
+      const response = await apiClient.get(
+        `issues/get-issue-details/${issueId}`
+      );
       setIssueDetails(response.data.issue);
     } catch (error) {
       console.error("Error fetching issue details:", error);
@@ -686,7 +767,7 @@ export const Home = () => {
           <div className="relative">
             <div className="relative rounded-xl overflow-hidden shadow-xl">
               <img
-                src="./banner.png"
+                src="./gclm.png"
                 alt="City Synergy Platform"
                 className="w-full h-full object-cover"
               />
@@ -725,13 +806,21 @@ export const Home = () => {
                 >
                   Pincode
                 </label>
-                <input
+                <AsyncSelect
                   id="pincode"
-                  type="text"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value)}
+                  cacheOptions
+                  loadOptions={loadTenderPincodes}
+                  // Update selectedPincode and clear dependent fields
+                  onChange={(selectedOption) => {
+                    setSelectedPincode(selectedOption);
+                    setSelectedArea(null);
+                    setSelectedLocalArea(null);
+                  }}
+                  value={selectedPincode}
                   placeholder="Enter Pincode"
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  noOptionsMessage={() => "Type to search pincodes"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
                 />
               </div>
 
@@ -743,12 +832,18 @@ export const Home = () => {
                   Area
                 </label>
                 <AsyncSelect
+                  key={selectedPincode ? selectedPincode.value : "area-select"} // Added key prop
                   id="area"
                   cacheOptions
                   loadOptions={fetchAreas}
-                  onChange={setSelectedArea}
+                  // Update selectedArea and clear dependent fields
+                  onChange={(selectedOption) => {
+                    setSelectedArea(selectedOption);
+                    setSelectedLocalArea(null);
+                  }}
+                  value={selectedArea}
                   placeholder="Select Area"
-                  isDisabled={!pincode}
+                  isDisabled={!selectedPincode}
                   noOptionsMessage={() => "No areas found"}
                   className="react-select-container"
                   classNamePrefix="react-select"
@@ -763,12 +858,14 @@ export const Home = () => {
                   Local Area
                 </label>
                 <AsyncSelect
+                  key={selectedArea ? selectedArea.value : "local-area-select"} // Added key prop
                   id="localArea"
                   cacheOptions
                   loadOptions={fetchLocalAreas}
                   onChange={setSelectedLocalArea}
+                  value={selectedLocalArea}
                   placeholder="Select Local Area"
-                  isDisabled={!pincode || !selectedArea}
+                  isDisabled={!selectedPincode || !selectedArea}
                   noOptionsMessage={() => "No local areas found"}
                   className="react-select-container"
                   classNamePrefix="react-select"
@@ -780,7 +877,10 @@ export const Home = () => {
                   type="submit"
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   disabled={
-                    loading || !pincode || !selectedArea || !selectedLocalArea
+                    loading ||
+                    !selectedPincode ||
+                    !selectedArea ||
+                    !selectedLocalArea
                   }
                 >
                   <Search className="w-5 h-5 mr-2" />
@@ -840,10 +940,10 @@ export const Home = () => {
                         {tender.Tender_ID}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {tender.Tender_By_Department}
+                        {tender.Tender_by_Department}
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {tender.Tender_By_Classification}
+                        {tender.Tender_by_Classification}
                       </td>
                       <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                         {new Date(tender.Sanction_Date).toLocaleDateString()}
@@ -863,18 +963,18 @@ export const Home = () => {
                       <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            tender.Tender_Status === "Completed"
+                            tender.Complete_Pending === "Completed"
                               ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                              : tender.Tender_Status === "In Progress"
+                              : tender.Complete_Pending === "In Progress"
                               ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                               : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
                           }`}
                         >
-                          {tender.Tender_Status}
+                          {tender.Complete_Pending}
                         </span>
                       </td>
                       <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                        {tender.Tender_Acquired_By_Agency}
+                        N/A
                       </td>
                     </tr>
                   ))}
@@ -1256,7 +1356,11 @@ export const Home = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(issueResponse.data.IssueId);
+                      document.execCommand(
+                        "copy",
+                        false,
+                        issueResponse.data.IssueId
+                      ); // Using execCommand for broader compatibility in iframes
                       showToast("Issue ID copied to clipboard", "success");
                     }}
                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 ml-2 flex-shrink-0"
@@ -1272,7 +1376,7 @@ export const Home = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2z"
+                        d="M8 16H6a2 0 01-2-2V6a2 0 012-2h8a2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2z"
                       />
                     </svg>
                   </button>
@@ -1295,15 +1399,146 @@ export const Home = () => {
 
       {/* Add after Success Modal */}
       <StatusModal
-  isStatusModalOpen={isStatusModalOpen}
-  setIsStatusModalOpen={setIsStatusModalOpen}
-  issueDetails={issueDetails}
-  setIssueDetails={setIssueDetails}
-  issueId={issueId}
-  setIssueId={setIssueId}
-  isCheckingStatus={isCheckingStatus}
-  handleCheckStatus={handleCheckStatus}
-/>
+        isStatusModalOpen={isStatusModalOpen}
+        setIsStatusModalOpen={setIsStatusModalOpen}
+        issueDetails={issueDetails}
+        setIssueDetails={setIssueDetails}
+        issueId={issueId}
+        setIssueId={setIssueId}
+        isCheckingStatus={isCheckingStatus}
+        handleCheckStatus={handleCheckStatus}
+      />
+
+      {/* Footer Section */}
+      <footer className="bg-gray-900 dark:bg-gray-950 text-white py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Company Info */}
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-blue-400">CITY SYNERGY</h3>
+              <p className="text-gray-400 text-sm">
+                Empowering citizens and streamlining urban governance through
+                technology.
+              </p>
+              <div className="flex space-x-4">
+                {/* Social Media Icons (placeholders) */}
+                <a
+                  href="https://github.com/metaltroop"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.931 0-1.091.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.026 2.747-1.026.546 1.379.202 2.398.099 2.65.64.7 1.028 1.597 1.028 2.688 0 3.829-2.339 4.675-4.566 4.922.359.307.678.915.678 1.846 0 1.334-.012 2.41-.012 2.727 0 .266.18.576.687.479C21.133 20.217 24 16.447 24 12.017 24 6.484 19.522 2 14 2h-2z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </a>
+                <a
+                  href="#"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.931 0-1.091.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.026 2.747-1.026.546 1.379.202 2.398.099 2.65.64.7 1.028 1.597 1.028 2.688 0 3.829-2.339 4.675-4.566 4.922.359.307.678.915.678 1.846 0 1.334-.012 2.41-.012 2.727 0 .266.18.576.687.479C21.133 20.217 24 16.447 24 12.017 24 6.484 19.522 2 14 2h-2z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </a>
+                <a
+                  href="#"
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.931 0-1.091.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.026 2.747-1.026.546 1.379.202 2.398.099 2.65.64.7 1.028 1.597 1.028 2.688 0 3.829-2.339 4.675-4.566 4.922.359.307.678.915.678 1.846 0 1.334-.012 2.41-.012 2.727 0 .266.18.576.687.479C21.133 20.217 24 16.447 24 12.017 24 6.484 19.522 2 14 2h-2z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+              <ul className="space-y-2 text-gray-400 text-sm">
+                <li>
+                  <ScrollLink
+                    to="home"
+                    smooth={true}
+                    duration={500}
+                    className="hover:text-white cursor-pointer"
+                  >
+                    Home
+                  </ScrollLink>
+                </li>
+                <li>
+                  <ScrollLink
+                    to="about"
+                    smooth={true}
+                    duration={500}
+                    className="hover:text-white cursor-pointer"
+                  >
+                    About Us
+                  </ScrollLink>
+                </li>
+                <li>
+                  <ScrollLink
+                    to="knowtenders"
+                    smooth={true}
+                    duration={500}
+                    className="hover:text-white cursor-pointer"
+                  >
+                    Tenders
+                  </ScrollLink>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Report Issue
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white">
+                    Check Status
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Contact Info */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
+              <ul className="space-y-2 text-gray-400 text-sm">
+                <li>Email: supp.citysynergy@gmail.com</li>
+                <li>Phone: +91 84840 65719</li>
+                <li>Address: Nashik, Maharashtra India</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-700 dark:border-gray-800 mt-8 pt-6 text-center text-gray-500 text-sm">
+            &copy; {new Date().getFullYear()} City Synergy. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
@@ -1313,7 +1548,7 @@ Home.PropTypes = {
   departments: PropTypes.array,
   issueCategories: PropTypes.array,
   issueStatus: PropTypes.array,
-  fetchAreas: PropTypes.func,
+  fetchAreas: PropTypes.func, // This prop type might be removed if fetchAreas is not passed as a prop
   showProfileDropdown: PropTypes.func,
   username: PropTypes.string,
 };
